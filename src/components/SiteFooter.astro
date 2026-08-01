@@ -1,0 +1,35 @@
+---
+import { GITHUB_URL, LICENSE_URL, SELF_HOST_PATH } from "../data/features";
+---
+
+<footer class="border-t border-[var(--line)]">
+  <div
+    class="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between"
+  >
+    <p>
+      Required Notice: Copyright Questory Labs (<a
+        href={GITHUB_URL}
+        class="text-[var(--accent)] hover:underline"
+        target="_blank"
+        rel="noopener noreferrer">Questory-Labs/Questory</a
+      >)
+    </p>
+    <nav class="flex flex-wrap gap-4">
+      <a
+        href={GITHUB_URL}
+        class="transition hover:text-[var(--ink)]"
+        target="_blank"
+        rel="noopener noreferrer">GitHub</a
+      >
+      <a href={SELF_HOST_PATH} class="transition hover:text-[var(--ink)]"
+        >Self-hosting</a
+      >
+      <a
+        href={LICENSE_URL}
+        class="transition hover:text-[var(--ink)]"
+        target="_blank"
+        rel="noopener noreferrer">License</a
+      >
+    </nav>
+  </div>
+</footer>

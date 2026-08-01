@@ -1,0 +1,18 @@
+---
+type Size = "sm" | "md" | "lg";
+
+type Props = {
+  size?: Size;
+  class?: string;
+  faceClass?: string;
+};
+
+const { size = "md", class: className = "", faceClass = "" } = Astro.props;
+---
+
+<div class:list={[`hatch-shadow hatch-shadow--${size}`, className]}>
+  <span class="hatch-cast" aria-hidden="true"></span>
+  <div class:list={["hatch-face", faceClass]}>
+    <slot />
+  </div>
+</div>

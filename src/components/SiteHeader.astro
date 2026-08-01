@@ -1,0 +1,50 @@
+---
+import BrandMark from "./BrandMark.astro";
+import { GITHUB_URL, SELF_HOST_PATH } from "../data/features";
+
+const path = Astro.url.pathname;
+const isHome = path === "/";
+const screenshotsHref = isHome ? "#screenshots" : "/screenshots/";
+const screenshotsActive = path.startsWith("/screenshots");
+---
+
+<header class="relative z-20 border-b border-[var(--line)]">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <BrandMark size="sm" />
+    <nav class="flex flex-wrap items-center justify-end gap-4 text-sm text-[var(--muted)]">
+      {
+        isHome ? (
+          <a href="#features" class="transition hover:text-[var(--ink)]">Features</a>
+        ) : (
+          <a href="/#features" class="transition hover:text-[var(--ink)]">Features</a>
+        )
+      }
+      <a
+        href={screenshotsHref}
+        class:list={[
+          "transition hover:text-[var(--ink)]",
+          screenshotsActive && "text-[var(--accent)]",
+        ]}
+      >
+        Screenshots
+      </a>
+      <a
+        href={SELF_HOST_PATH}
+        class:list={[
+          "transition hover:text-[var(--ink)]",
+          path.startsWith(SELF_HOST_PATH) && "text-[var(--accent)]",
+        ]}
+      >
+        Self-host
+      </a>
+      <a
+        href={GITHUB_URL}
+        class="transition hover:text-[var(--accent)]"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        GitHub
+      </a>
+    </nav>
+  </div>
+</header>

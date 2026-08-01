@@ -1,0 +1,70 @@
+---
+import HatchShadow from "./HatchShadow.astro";
+
+type Props = {
+  id: string;
+  title: string;
+  group: string;
+};
+
+const { id, title, group } = Astro.props;
+const cardSrc = `/screenshots/card/${id}.webp`;
+const fullSrc = `/screenshots/full/${id}.webp`;
+const srcset = `${cardSrc} 800w, ${fullSrc} 1440w`;
+---
+
+<HatchShadow size="md" class="h-full">
+  <figure class="panel h-full overflow-hidden">
+    <button
+      type="button"
+      class="screenshot-trigger block w-full cursor-zoom-in text-left"
+      data-screenshot-id={id}
+      data-screenshot-title={title}
+      data-screenshot-group={group}
+      data-screenshot-src={fullSrc}
+      aria-label={`View full ${title} screenshot`}
+    >
+      <div class="screenshot-slot relative">
+        <img
+          class="screenshot-img"
+          src={cardSrc}
+          srcset={srcset}
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+          alt={`${title} screenshot`}
+          loading="lazy"
+          decoding="async"
+        />
+        <div class="screenshot-placeholder">
+          <span class="screenshot-placeholder__label">{group}</span>
+          <span>Screenshot coming soon</span>
+        </div>
+      </div>
+    </button>
+    <figcaption
+      class="border-t border-[var(--line)] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.15em] text-[var(--muted)]"
+    >
+      {title}
+    </figcaption>
+  </figure>
+</HatchShadow>
+
+<script>
+  document.querySelectorAll<HTMLImageElement>(".screenshot-img").forEach((img) => {
+    const showPlaceholder = () => {
+      img.style.display = "none";
+    };
+    img.addEventListener("error", showPlaceholder);
+    if (img.complete && img.naturalWidth === 0) showPlaceholder();
+  });
+</script>
+
+<style>
+  .screenshot-slot:has(.screenshot-img:not([style*="display: none"])) .screenshot-placeholder {
+    display: none;
+  }
+
+  .screenshot-trigger:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+</style>

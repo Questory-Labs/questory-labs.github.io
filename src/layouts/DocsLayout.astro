@@ -1,0 +1,50 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import { SELF_HOST_REPO_URL } from "../data/features";
+
+interface Props {
+  frontmatter: {
+    title: string;
+    description?: string;
+  };
+}
+
+const { frontmatter } = Astro.props;
+---
+
+<BaseLayout
+  title={`${frontmatter.title} — Questory`}
+  description={frontmatter.description}
+>
+  <SiteHeader />
+  <div class="mx-auto max-w-3xl px-6 py-12 pb-20">
+    <a
+      href="/"
+      class="font-mono text-[11px] uppercase tracking-[0.15em] text-[var(--muted)] transition hover:text-[var(--accent)]"
+    >
+      ← Home
+    </a>
+    <article class="docs-content mt-8">
+      <h1>{frontmatter.title}</h1>
+      {frontmatter.description ? (
+        <p class="!text-lg !text-[var(--muted)]">{frontmatter.description}</p>
+      ) : null}
+      <slot />
+    </article>
+    <p class="mt-12 border-t border-[var(--line)] pt-6 text-sm text-[var(--muted)]">
+      Canonical source:
+      <a
+        href={SELF_HOST_REPO_URL}
+        class="text-[var(--accent)] hover:underline"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        docs/self-hosting.md
+      </a>
+      in the Questory repository.
+    </p>
+  </div>
+  <SiteFooter />
+</BaseLayout>

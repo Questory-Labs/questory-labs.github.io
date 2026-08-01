@@ -1,0 +1,73 @@
+---
+type Props = {
+  href?: string | null;
+  size?: "sm" | "md" | "lg";
+  showWordmark?: boolean;
+  class?: string;
+  wordmarkClass?: string;
+};
+
+const {
+  href = "/",
+  size = "md",
+  showWordmark = true,
+  class: className = "",
+  wordmarkClass = "",
+} = Astro.props;
+
+const sizes = { sm: 28, md: 36, lg: 72 } as const;
+const px = sizes[size];
+const weight = size === "sm" ? 700 : 800;
+---
+
+{
+  href == null ? (
+    <span class:list={["inline-flex items-center gap-2.5 text-[var(--ink)]", className]}>
+      <img
+        src="/favicon.svg"
+        alt=""
+        width={px}
+        height={px}
+        class="shrink-0 rounded-[20%]"
+        decoding="async"
+      />
+      {showWordmark ? (
+        <span
+          class:list={["font-display leading-none tracking-tight", wordmarkClass]}
+          style={`font-weight: ${weight}`}
+        >
+          Questory
+        </span>
+      ) : (
+        <span class="sr-only">Questory</span>
+      )}
+    </span>
+  ) : (
+    <a
+      href={href}
+      class="inline-flex transition hover:opacity-90"
+      aria-label="Questory home"
+    >
+      <span class:list={["inline-flex items-center gap-2.5 text-[var(--ink)]", className]}>
+        <img
+          src="/favicon.svg"
+          alt=""
+          width={px}
+          height={px}
+          class="shrink-0 rounded-[20%]"
+          decoding="async"
+        />
+        {showWordmark ? (
+          <span
+            class:list={["font-display leading-none tracking-tight", wordmarkClass]}
+            style={`font-weight: ${weight}`}
+          >
+            Questory
+          </span>
+        ) : (
+          <span class="sr-only">Questory</span>
+        )}
+      </span>
+    </a>
+  )
+}

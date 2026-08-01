@@ -1,0 +1,22 @@
+# Questory
+
+> Steam-first library and media intelligence: games dashboard, wishlist and cost analytics, friends and multiplayer planning, family insights, smart collections — plus optional Music, Watch, and Read modules.
+
+Questory is source-available under PolyForm Noncommercial 1.0.0. Personal and noncommercial self-hosting is allowed via Docker Compose.
+
+## Site
+
+- [Home](https://questory-labs.github.io/): Product overview, feature highlights, and links to GitHub and self-hosting
+- [Screenshots](https://questory-labs.github.io/screenshots/): UI captures across games, music, watch, read, QEngine, and admin
+- [Self-hosting guide](https://questory-labs.github.io/self-hosting/): Docker Compose profiles, environment templates, and optional modules
+
+## Repository
+
+- [Questory on GitHub](https://github.com/Questory-Labs/Questory): Source code, issues, and development
+- [Self-hosting (canonical)](https://github.com/Questory-Labs/Questory/blob/main/docs/self-hosting.md): Full self-hosting documentation in the main repository
+- [License](https://github.com/Questory-Labs/Questory/blob/main/LICENSE): PolyForm Noncommercial 1.0.0
+
+## Optional
+
+- [README](https://github.com/Questory-Labs/Questory/blob/main/README.md): Project overview and quick start
+- [Testing guide](https://github.com/Questory-Labs/Questory/blob/main/docs/testing.md): Vitest, Playwright, and CI testing conventions

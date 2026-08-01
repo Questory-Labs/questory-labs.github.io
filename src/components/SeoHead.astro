@@ -1,0 +1,67 @@
+---
+import {
+  SITE_NAME,
+  SITE_URL,
+  GITHUB_URL,
+  DEFAULT_DESCRIPTION,
+  OG_IMAGE_PATH,
+  OG_IMAGE_WIDTH,
+  OG_IMAGE_HEIGHT,
+} from "../data/site";
+
+type Props = {
+  title: string;
+  description: string;
+  image?: string;
+  noindex?: boolean;
+};
+
+const { title, description, image, noindex = false } = Astro.props;
+
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? SITE_URL).href;
+const imagePath = image ?? OG_IMAGE_PATH;
+const imageUrl = new URL(imagePath, Astro.site ?? SITE_URL).href;
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      name: SITE_NAME,
+      url: SITE_URL,
+      description: DEFAULT_DESCRIPTION,
+    },
+    {
+      "@type": "Organization",
+      name: "Questory Labs",
+      url: SITE_URL,
+      sameAs: [GITHUB_URL],
+    },
+  ],
+};
+---
+
+<link rel="canonical" href={canonicalUrl} />
+<link rel="alternate" type="text/markdown" href="/llms.txt" />
+<meta name="description" content={description} />
+{noindex ? (
+  <meta name="robots" content="noindex, nofollow" />
+) : (
+  <meta name="robots" content="index, follow" />
+)}
+
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonicalUrl} />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content={SITE_NAME} />
+<meta property="og:image" content={imageUrl} />
+<meta property="og:image:width" content={String(OG_IMAGE_WIDTH)} />
+<meta property="og:image:height" content={String(OG_IMAGE_HEIGHT)} />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={imageUrl} />
+
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

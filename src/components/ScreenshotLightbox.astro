@@ -1,0 +1,144 @@
+<dialog id="screenshot-lightbox" class="screenshot-lightbox">
+  <div class="screenshot-lightbox__backdrop" data-close-lightbox></div>
+  <div class="screenshot-lightbox__panel panel">
+    <button
+      type="button"
+      class="screenshot-lightbox__close"
+      aria-label="Close screenshot"
+      data-close-lightbox
+    >
+      Close
+    </button>
+    <img
+      id="screenshot-lightbox-image"
+      class="screenshot-lightbox__image"
+      alt=""
+      decoding="async"
+    />
+    <p id="screenshot-lightbox-caption" class="screenshot-lightbox__caption"></p>
+  </div>
+</dialog>
+
+<script>
+  const dialog = document.getElementById(
+    "screenshot-lightbox",
+  ) as HTMLDialogElement | null;
+  const image = document.getElementById(
+    "screenshot-lightbox-image",
+  ) as HTMLImageElement | null;
+  const caption = document.getElementById(
+    "screenshot-lightbox-caption",
+  ) as HTMLParagraphElement | null;
+
+  if (dialog && image && caption) {
+    const openLightbox = (trigger: HTMLButtonElement) => {
+      const src = trigger.dataset.screenshotSrc;
+      const title = trigger.dataset.screenshotTitle ?? "Screenshot";
+      const group = trigger.dataset.screenshotGroup ?? "";
+
+      if (!src) return;
+
+      image.src = src;
+      image.alt = `${title} screenshot`;
+      caption.textContent = group ? `${group} — ${title}` : title;
+      dialog.showModal();
+      document.body.style.overflow = "hidden";
+    };
+
+    const closeLightbox = () => {
+      if (!dialog.open) return;
+      dialog.close();
+      image.removeAttribute("src");
+      image.alt = "";
+      caption.textContent = "";
+      document.body.style.overflow = "";
+    };
+
+    document.querySelectorAll<HTMLButtonElement>(".screenshot-trigger").forEach((trigger) => {
+      trigger.addEventListener("click", () => openLightbox(trigger));
+    });
+
+    dialog.querySelectorAll("[data-close-lightbox]").forEach((node) => {
+      node.addEventListener("click", closeLightbox);
+    });
+
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      closeLightbox();
+    });
+
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) closeLightbox();
+    });
+  }
+</script>
+
+<style>
+  .screenshot-lightbox {
+    margin: auto;
+    max-width: min(96vw, 72rem);
+    width: 100%;
+    border: none;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+  }
+
+  .screenshot-lightbox::backdrop {
+    background: rgba(12, 12, 14, 0.88);
+    backdrop-filter: blur(6px);
+  }
+
+  .screenshot-lightbox__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+  }
+
+  .screenshot-lightbox__panel {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screenshot-lightbox__close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 1;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: rgba(16, 16, 18, 0.92);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.45rem 0.7rem;
+    cursor: pointer;
+  }
+
+  .screenshot-lightbox__close:hover {
+    border-color: var(--line-strong);
+  }
+
+  .screenshot-lightbox__image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: min(78vh, 900px);
+    object-fit: contain;
+    object-position: top;
+    background: var(--bg-1);
+  }
+
+  .screenshot-lightbox__caption {
+    margin: 0;
+    border-top: 1px solid var(--line);
+    padding: 0.85rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+</style>

@@ -1,0 +1,64 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ScreenshotFrame from "../../components/ScreenshotFrame.astro";
+import ScreenshotLightbox from "../../components/ScreenshotLightbox.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import SiteFooter from "../../components/SiteFooter.astro";
+import { screenshotGroups } from "../../data/features";
+---
+
+<BaseLayout
+  title="Screenshots — Questory"
+  description="Browse Questory screenshots across games, music, watch, read, QEngine, and admin."
+>
+  <SiteHeader />
+
+  <main class="mx-auto max-w-6xl px-6 py-16">
+    <a
+      href="/"
+      class="font-mono text-[11px] uppercase tracking-[0.15em] text-[var(--muted)] transition hover:text-[var(--accent)]"
+    >
+      ← Home
+    </a>
+
+    <p class="section-eyebrow mt-8">Product</p>
+    <h1 class="font-display mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+      Screenshots
+    </h1>
+    <p class="mt-3 max-w-2xl text-[var(--muted)]">
+      Explore the Questory UI across core Steam features and optional music,
+      watch, read, QEngine, and admin modules.
+    </p>
+
+    <div class="mt-14 space-y-16">
+      {
+        screenshotGroups.map((group) => (
+          <section id={group.id}>
+            <div class="mb-6 flex flex-wrap items-baseline gap-3">
+              <h2 class="font-display text-2xl font-semibold tracking-tight">
+                {group.eyebrow}
+              </h2>
+              {group.optional ? (
+                <span class="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--accent-dim)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">
+                  Optional
+                </span>
+              ) : null}
+            </div>
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {group.shots.map((shot) => (
+                <ScreenshotFrame
+                  id={shot.id}
+                  title={shot.title}
+                  group={shot.group}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      }
+    </div>
+  </main>
+
+  <ScreenshotLightbox />
+  <SiteFooter />
+</BaseLayout>
