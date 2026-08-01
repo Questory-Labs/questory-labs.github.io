@@ -9,9 +9,13 @@ interface Props {
     title: string;
     description?: string;
   };
+  headings: { depth: number; slug: string; text: string }[];
 }
 
-const { frontmatter } = Astro.props;
+const { frontmatter, headings } = Astro.props;
+
+// Filter to h2 and h3 only for sidebar
+const tocItems = (headings ?? []).filter((h) => h.depth === 2 || h.depth === 3);
 ---
 
 <BaseLayout
@@ -19,32 +23,138 @@ const { frontmatter } = Astro.props;
   description={frontmatter.description}
 >
   <SiteHeader />
-  <div class="mx-auto max-w-3xl px-6 py-12 pb-20">
-    <a
-      href="/"
-      class="font-mono text-[11px] uppercase tracking-[0.15em] text-[var(--muted)] transition hover:text-[var(--accent)]"
-    >
-      ← Home
-    </a>
-    <article class="docs-content mt-8">
-      <h1>{frontmatter.title}</h1>
-      {frontmatter.description ? (
-        <p class="!text-lg !text-[var(--muted)]">{frontmatter.description}</p>
-      ) : null}
-      <slot />
-    </article>
-    <p class="mt-12 border-t border-[var(--line)] pt-6 text-sm text-[var(--muted)]">
-      Canonical source:
+  <div class="docs-shell">
+    <!-- Sidebar TOC (desktop) -->
+    {tocItems.length > 0 && (
+      <aside class="docs-sidebar" aria-label="Table of contents">
+        <nav class="docs-toc">
+          <p class="docs-toc__title">On this page</p>
+          <ul class="docs-toc__list">
+            {tocItems.map((h) => (
+              <li
+                class:list={[
+                  "docs-toc__item",
+                  { "docs-toc__item--sub": h.depth === 3 },
+                ]}
+              >
+                <a href={`#${h.slug}`} class="docs-toc__link" data-toc-link>
+                  {h.text}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
+    )}
+
+    <!-- Main content -->
+    <div class="docs-main">
       <a
-        href={SELF_HOST_REPO_URL}
-        class="text-[var(--accent)] hover:underline"
-        target="_blank"
-        rel="noopener noreferrer"
+        href="/"
+        class="font-mono text-[11px] uppercase tracking-[0.15em] text-[var(--muted)] transition hover:text-[var(--accent)]"
       >
-        docs/self-hosting.md
+        ← Home
       </a>
-      in the Questory repository.
-    </p>
+
+      <!-- Mobile TOC toggle -->
+      {tocItems.length > 0 && (
+        <details class="docs-toc-mobile">
+          <summary class="docs-toc-mobile__trigger">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Table of Contents
+            <svg class="docs-toc-mobile__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </summary>
+          <nav class="docs-toc-mobile__nav">
+            <ul class="docs-toc__list">
+              {tocItems.map((h) => (
+                <li
+                  class:list={[
+                    "docs-toc__item",
+                    { "docs-toc__item--sub": h.depth === 3 },
+                  ]}
+                >
+                  <a href={`#${h.slug}`} class="docs-toc__link">
+                    {h.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </details>
+      )}
+
+      <article class="docs-content mt-8">
+        <h1>{frontmatter.title}</h1>
+        {frontmatter.description ? (
+          <p class="!text-lg !text-[var(--muted)]">{frontmatter.description}</p>
+        ) : null}
+        <slot />
+      </article>
+      <p class="mt-12 border-t border-[var(--line)] pt-6 text-sm text-[var(--muted)]">
+        Canonical source:
+        <a
+          href={SELF_HOST_REPO_URL}
+          class="text-[var(--accent)] hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          docs/self-hosting.md
+        </a>
+        in the Questory repository.
+      </p>
+    </div>
   </div>
   <SiteFooter />
 </BaseLayout>
+
+<script>
+  // Highlight active TOC link based on scroll position
+  const tocLinks = document.querySelectorAll<HTMLAnchorElement>("[data-toc-link]");
+  if (tocLinks.length > 0) {
+    const headingEls = Array.from(tocLinks)
+      .map((link) => {
+        const id = link.getAttribute("href")?.replace("#", "");
+        return id ? document.getElementById(id) : null;
+      })
+      .filter(Boolean) as HTMLElement[];
+
+    const ACTIVE_CLASS = "docs-toc__link--active";
+
+    function setActive(slug: string) {
+      tocLinks.forEach((l) => {
+        if (l.getAttribute("href") === `#${slug}`) {
+          l.classList.add(ACTIVE_CLASS);
+        } else {
+          l.classList.remove(ACTIVE_CLASS);
+        }
+      });
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Pick the first heading that's intersecting from the top
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActive(entry.target.id);
+            break;
+          }
+        }
+      },
+      {
+        rootMargin: "0px 0px -75% 0px",
+        threshold: 0,
+      }
+    );
+
+    headingEls.forEach((el) => observer.observe(el));
+
+    // Also handle scroll-to-top edge case
+    if (headingEls.length > 0) {
+      setActive(headingEls[0].id);
+    }
+  }
+</script>
