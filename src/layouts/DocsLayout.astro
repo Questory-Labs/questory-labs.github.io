@@ -112,6 +112,33 @@ const tocItems = (headings ?? []).filter((h) => h.depth === 2 || h.depth === 3);
 </BaseLayout>
 
 <script>
+  // Badge Service-column cells (API / Web / Enterprise) in env tables
+  document.querySelectorAll(".docs-content table").forEach((table) => {
+    const headers = Array.from(table.querySelectorAll("thead th")).map((th) =>
+      (th.textContent || "").trim().toLowerCase(),
+    );
+    const serviceIdx = headers.indexOf("service");
+    if (serviceIdx < 0) return;
+    table.querySelectorAll("tbody tr").forEach((row) => {
+      const cell = row.children[serviceIdx] as HTMLElement | undefined;
+      if (!cell) return;
+      const raw = (cell.textContent || "").trim();
+      if (!raw || cell.querySelector(".svc")) return;
+      cell.replaceChildren();
+      raw.split(/\s*\+\s*/).forEach((part, i) => {
+        if (i > 0) cell.append(document.createTextNode(" + "));
+        const badge = document.createElement("span");
+        const key = part.trim().toLowerCase();
+        badge.className = "svc";
+        if (key === "api") badge.classList.add("svc--api");
+        else if (key === "web") badge.classList.add("svc--web");
+        else if (key === "enterprise") badge.classList.add("svc--enterprise");
+        badge.textContent = part.trim();
+        cell.append(badge);
+      });
+    });
+  });
+
   // Highlight active TOC link based on scroll position
   const tocLinks = document.querySelectorAll<HTMLAnchorElement>("[data-toc-link]");
   if (tocLinks.length > 0) {

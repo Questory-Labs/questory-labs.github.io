@@ -30,7 +30,7 @@ Self-hosting of the community stack is allowed only under the [PolyForm Noncomme
 
 ## Architecture overview
 
-Questory is a monorepo with two main services:
+Questory is a monorepo with **Web** + **API**, and optional **Enterprise** (QEngine):
 
 <div class="arch-diagram" role="img" aria-label="Questory architecture diagram">
   <div class="arch-tier">
@@ -42,11 +42,12 @@ Questory is a monorepo with two main services:
       </div>
       <div class="arch-box__tech">Next.js · Tailwind · TanStack Query</div>
       <div class="arch-box__desc">Dashboard, library, analytics UI</div>
+      <div class="arch-box__desc">Env: <code>NEXT_PUBLIC_*</code>, <code>ENTERPRISE</code></div>
     </div>
   </div>
   <div class="arch-connector">
     <div class="arch-connector__line"></div>
-    <div class="arch-connector__label">API calls</div>
+    <div class="arch-connector__label">session API · /v1/*</div>
     <div class="arch-connector__line"></div>
   </div>
   <div class="arch-tier">
@@ -58,7 +59,24 @@ Questory is a monorepo with two main services:
       </div>
       <div class="arch-box__tech">NestJS · Prisma · BullMQ</div>
       <div class="arch-box__desc">Steam sync, music, watch, read, cron</div>
-      <div class="arch-box__desc">Auth: email + password, Steam OpenID (link-only)</div>
+      <div class="arch-box__desc">Proxies QEngine via <code>ENTERPRISE_URL</code></div>
+    </div>
+  </div>
+  <div class="arch-connector">
+    <div class="arch-connector__line"></div>
+    <div class="arch-connector__label">internal bearer · ENTERPRISE_INTERNAL_SECRET</div>
+    <div class="arch-connector__line"></div>
+  </div>
+  <div class="arch-tier">
+    <div class="arch-box arch-box--enterprise">
+      <div class="arch-box__header">
+        <span class="arch-box__icon">◎</span>
+        <span class="arch-box__name">Enterprise</span>
+        <span class="arch-box__port">:4030</span>
+      </div>
+      <div class="arch-box__tech">QEngine · Rust / Axum · binary-only</div>
+      <div class="arch-box__desc">Recommendations, dossier, telemetry (optional)</div>
+      <div class="arch-box__desc">Browser ops only: <code>GET /health</code></div>
     </div>
   </div>
   <div class="arch-connector">
@@ -91,7 +109,7 @@ Questory is a monorepo with two main services:
   </div>
 </div>
 
-**One database:** Steam, music, watch, and read all use the same `DATABASE_URL`. Schema lives in `packages/db`. Identity is a shared `User` row (email+password account, Steam link, music ingest token, Trakt/AniList connections).
+**One database:** Steam, music, watch, and read all use the same `DATABASE_URL`. Schema lives in `packages/db`. Identity is a shared `User` row (email+password account, Steam link, music ingest token, Trakt/AniList connections). QEngine (enterprise stack) shares Postgres when `ENTERPRISE_STORE=postgres`.
 
 ---
 
@@ -118,7 +136,7 @@ Prebuilt Docker images are published on **every build** to both registries:
 |-------|----------------------------------|------------|
 | **API** | `ghcr.io/questory-labs/questorylabs-api:latest` | `santoshpanna/questorylabs-api:latest` |
 | **Web** | `ghcr.io/questory-labs/questorylabs-web:latest` | `santoshpanna/questorylabs-web:latest` |
-| **QEngine** _(enterprise)_ | `ghcr.io/questory-labs/questorylabs-qengine:latest` | — |
+| **QEngine** _(enterprise)_ | `ghcr.io/questory-labs/questorylabs-qengine:latest` | `santoshpanna/questorylabs-qengine:latest` |
 
 > **Tip:** GHCR images are public and don't require authentication to pull. Docker Hub images are also public under the [`santoshpanna`](https://hub.docker.com/u/santoshpanna) namespace. You can use either registry interchangeably.
 
@@ -181,7 +199,12 @@ services:
     image: santoshpanna/questorylabs-api:latest
   web:
     image: santoshpanna/questorylabs-web:latest
+  # enterprise compose only:
+  enterprise:
+    image: santoshpanna/questorylabs-qengine:latest
 ```
+
+Or set `QENGINE_IMAGE=santoshpanna/questorylabs-qengine:latest` in `.env` (default for `docker-compose.enterprise.yml`).
 
 ### Pinning versions
 
@@ -244,103 +267,153 @@ docker compose --profile production --env-file .env up -d --build
 The enterprise compose file adds **QEngine** (binary-only recommendation engine) alongside the full stack:
 
 ```bash
+# From a clone of the repo (or download docker-compose.enterprise.yml + .env.enterprise.example)
 cp .env.enterprise.example .env
-# Set SESSION_SECRET, STEAM_API_KEY, CRON_SECRET, etc.
+# Set SESSION_SECRET, STEAM_API_KEY, CRON_SECRET, ENTERPRISE_INTERNAL_SECRET, etc.
 docker compose -f docker-compose.enterprise.yml --env-file .env up -d --build
 ```
 
-| Variable | Value |
-|----------|-------|
-| `ENTERPRISE` | `true` |
-| `NEXT_PUBLIC_ENTERPRISE_URL` | `http://localhost:4030` (QEngine port) |
+| Variable | Service | Value |
+|----------|---------|-------|
+| `ENTERPRISE` | Web | `true` |
+| `ENTERPRISE_URL` | API | `http://enterprise:4030` (API → QEngine on the Docker network) |
+| `ENTERPRISE_INTERNAL_SECRET` | API + Enterprise | Same long random secret in both containers |
+| `NEXT_PUBLIC_ENTERPRISE_URL` | Web | `http://localhost:4030` (browser ops probe / `GET /health` only) |
+
+### QEngine security
+
+- The browser should **not** call QEngine for product features. Recommendations, dossier, settings, guardrails, and telemetry admin go through the Nest API (`/v1/recommendations`, `/v1/enterprise/*`), which validates the session and proxies with a short-lived internal bearer token.
+- Direct browser access to QEngine is limited to **`GET /health`** (ops probe). Feature gating uses **`GET /v1/enterprise/status`** on the API (public proxy).
+- Set **`ENTERPRISE_INTERNAL_SECRET`** to the same long random value in the API and QEngine containers. QEngine rejects browser session cookies on protected routes.
+- Keep QEngine on the **internal Docker network** (`ENTERPRISE_URL=http://enterprise:4030` from the API). Do not publish OTEL ports `:4040` / `:4318` to the host — they bind localhost inside the QEngine process only.
 
 > **License:** QEngine images are for **personal / noncommercial** use only. Commercial use requires a separate license from Questory Labs.
 
-The QEngine image is available at `ghcr.io/questory-labs/questorylabs-qengine:latest`.
+QEngine images (binary-only, personal/noncommercial):
+
+```bash
+docker pull santoshpanna/questorylabs-qengine:latest
+# or: docker pull ghcr.io/questory-labs/questorylabs-qengine:latest
+```
 
 ---
 
 ## Environment variable reference
 
+**Service** column = which container reads the variable:
+
+| Tag | Container |
+|-----|-----------|
+| **API** | Nest API (`api`) |
+| **Web** | Next.js UI (`web`) |
+| **Enterprise** | QEngine (`enterprise`) |
+
+Shared secrets (e.g. `SESSION_SECRET`, `ENTERPRISE_INTERNAL_SECRET`) must match on every listed service.
+
 ### Core (required)
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `APP_MODE` | Boot mode: `local`, `selfhosted`, `selfhosted-full`, `production` | `selfhosted` |
-| `SESSION_SECRET` | Session signing secret (min 16 chars, **never** use placeholders in non-local modes) | `kj29F!xP...` |
-| `STEAM_API_KEY` | [Steam Web API key](https://steamcommunity.com/dev/apikey) | `ABC123DEF456...` |
+| Variable | Service | Description | Example |
+|----------|---------|-------------|---------|
+| `APP_MODE` | API | Boot mode: `local`, `selfhosted`, `selfhosted-full`, `production` | `selfhosted` |
+| `SESSION_SECRET` | API + Enterprise | Session signing secret (min 16 chars, **never** use placeholders in non-local modes) | `kj29F!xP...` |
+| `STEAM_API_KEY` | API | [Steam Web API key](https://steamcommunity.com/dev/apikey) | `ABC123DEF456...` |
 
 ### Database
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_PROVIDER` | `sqlite` or `postgresql` | `sqlite` (selfhosted), `postgresql` (full/prod) |
-| `DATABASE_URL` | Connection string | `file:/data/questorylabs.db` (SQLite) or `postgresql://questorylabs:questorylabs@postgres:5432/questorylabs` |
+| Variable | Service | Description | Default |
+|----------|---------|-------------|---------|
+| `DATABASE_PROVIDER` | API | `sqlite` or `postgresql` | `sqlite` (selfhosted), `postgresql` (full/prod) |
+| `DATABASE_URL` | API + Enterprise | Connection string | `file:/data/questorylabs.db` (SQLite) or `postgresql://questorylabs:questorylabs@postgres:5432/questorylabs` |
 
 > **Caveat:** Prisma cannot read `provider` from env at runtime. The build step `pnpm db:schema` generates `schema.prisma` from `schema.template.prisma`. Docker images handle this automatically.
 
 ### Cache & queues
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `REDIS_URL` | Redis connection string (enables BullMQ + shared cache) | _(empty = in-memory)_ |
-| `USE_INLINE_SYNC` | `true` for synchronous inline sync (SQLite mode), `false` for BullMQ queues | `true` (selfhosted) |
+| Variable | Service | Description | Default |
+|----------|---------|-------------|---------|
+| `REDIS_URL` | API | Redis connection string (enables BullMQ + shared cache) | _(empty = in-memory)_ |
+| `USE_INLINE_SYNC` | API | `true` for synchronous inline sync (SQLite mode), `false` for BullMQ queues | `true` (selfhosted) |
 
 ### URLs & origins
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `STEAM_REALM` | Steam OpenID realm — **must be the API origin** | `http://localhost:4000` |
-| `STEAM_RETURN_URL` | Steam OpenID callback — must start with `STEAM_REALM` | `http://localhost:4000/auth/steam/callback` |
-| `WEB_ORIGIN` | Browser app origin (CORS + post-login redirect) | `http://localhost:3000` |
-| `NEXT_PUBLIC_API_URL` | API URL the browser calls (set at container start via `/runtime-env.js`) | `http://localhost:4000` |
-| `COOKIE_DOMAIN` | Cookie domain for cross-subdomain auth | _(empty = host-only)_ |
-| `CORS_ORIGINS` | Extra CORS origins (comma-separated) | `$WEB_ORIGIN` |
+| Variable | Service | Description | Default |
+|----------|---------|-------------|---------|
+| `STEAM_REALM` | API | Steam OpenID realm — **must be the API origin** | `http://localhost:4000` |
+| `STEAM_RETURN_URL` | API | Steam OpenID callback — must start with `STEAM_REALM` | `http://localhost:4000/auth/steam/callback` |
+| `WEB_ORIGIN` | API + Enterprise | Browser app origin (CORS + post-login redirect) | `http://localhost:3000` |
+| `NEXT_PUBLIC_API_URL` | Web | API URL the browser calls (set at container start via `/runtime-env.js`) | `http://localhost:4000` |
+| `COOKIE_DOMAIN` | API | Cookie domain for cross-subdomain auth | _(empty = host-only)_ |
+| `CORS_ORIGINS` | Enterprise | Extra CORS origins for QEngine (comma-separated) | `$WEB_ORIGIN` |
 
 ### Access control
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ALLOWED_STEAM_IDS` | Comma-separated 17-digit Steam IDs for linking allowlist | _(empty = any)_ |
-| `ADMIN_EMAILS` | Comma-separated emails auto-granted `isAdmin` on register/login | _(empty)_ |
-| `TRUST_PROXY` | Set `true` behind a reverse proxy for correct client IP / rate limits | _(unset)_ |
-| `AUTH_BLOCKED_EMAIL_DOMAINS` | Extra disposable email domains to reject on signup | _(empty)_ |
+| Variable | Service | Description | Default |
+|----------|---------|-------------|---------|
+| `ALLOWED_STEAM_IDS` | API | Comma-separated 17-digit Steam IDs for linking allowlist | _(empty = any)_ |
+| `ADMIN_EMAILS` | API + Enterprise | Comma-separated emails auto-granted `isAdmin` on register/login | _(empty)_ |
+| `TRUST_PROXY` | API | Set `true` behind a reverse proxy for correct client IP / rate limits | _(unset)_ |
+| `AUTH_BLOCKED_EMAIL_DOMAINS` | API | Extra disposable email domains to reject on signup | _(empty)_ |
 
-### Feature flags
+### Feature flags (Web)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NEXT_PUBLIC_ENABLE_MUSIC` | Show Music nav (also requires API `/health` → `music.enabled`) | `false` |
-| `NEXT_PUBLIC_ENABLE_WATCH` | Show Watch nav (also requires API `/health` → `watch.enabled`) | `false` |
-| `NEXT_PUBLIC_ENABLE_READ` | Show Read nav (also requires API `/health` → `read.enabled`) | `false` |
-| `ENTERPRISE` | Enable enterprise features | `false` |
-| `NEXT_PUBLIC_ENTERPRISE_URL` | QEngine URL | _(empty)_ |
+| Variable | Service | Description | Default |
+|----------|---------|-------------|---------|
+| `NEXT_PUBLIC_ENABLE_MUSIC` | Web | Show Music nav (also requires API `/health` → `music.enabled`) | `false` |
+| `NEXT_PUBLIC_ENABLE_WATCH` | Web | Show Watch nav (also requires API `/health` → `watch.enabled`) | `false` |
+| `NEXT_PUBLIC_ENABLE_READ` | Web | Show Read nav (also requires API `/health` → `read.enabled`) | `false` |
+| `ENTERPRISE` | Web | Soft-gate Recommendations / Telemetry UI | `false` |
+| `NEXT_PUBLIC_ENTERPRISE_URL` | Web | Browser-facing QEngine URL for ops `GET /health` only (product traffic uses the API) | _(empty)_ |
 
 > **Important:** `NEXT_PUBLIC_*` variables are baked into the web build at image build time **except** `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_ENTERPRISE_URL`, which are injected at container start via `/runtime-env.js`. If you change other `NEXT_PUBLIC_*` flags, you must **rebuild the web image**.
 
+### QEngine proxy (API ↔ Enterprise)
+
+| Variable | Service | Description | Default |
+|----------|---------|-------------|---------|
+| `ENTERPRISE_URL` | API | QEngine base URL for API→QEngine proxy | `http://enterprise:4030` (compose) / `http://127.0.0.1:4030` (local) |
+| `ENTERPRISE_INTERNAL_SECRET` | API + Enterprise | Shared HMAC secret for short-lived internal bearer tokens (required for enterprise stack) | _(empty)_ |
+
+### QEngine runtime (Enterprise)
+
+| Variable | Service | Description | Default |
+|----------|---------|-------------|---------|
+| `ENTERPRISE_PORT` | Enterprise | QEngine HTTP port | `4030` |
+| `ENTERPRISE_STORE` | Enterprise | Store backend: `postgres` / `auto` / `sqlite` | `postgres` |
+| `ENTERPRISE_ML` | Enterprise | ML features (`on` / `off`) | `on` |
+| `ENTERPRISE_LLM` | Enterprise | LLM features (`on` / `off`) | `on` |
+| `ENTERPRISE_OLLAMA_URL` | Enterprise | Ollama base URL | `http://host.docker.internal:11434` |
+| `ENTERPRISE_LLM_MODEL` | Enterprise | Chat / agent model | `llama3.1:8b` |
+| `ENTERPRISE_EMBED_MODEL` | Enterprise | Embedding model | `nomic-embed-text` |
+| `ENTERPRISE_LLM_PULL` | Enterprise | Auto-pull missing models on startup | `on` |
+| `ENTERPRISE_STAGE_TIMEOUT_MS` | Enterprise | Per-agent-stage timeout (ms) | `30000` |
+| `ENTERPRISE_EMBED_PROVIDER` | Enterprise | `auto` / `ollama` / `candle` | `auto` |
+| `ENTERPRISE_WORLD` | Enterprise | World-context fetches (`on` / `off`) | `on` |
+| `ENTERPRISE_BRAVE_API_KEY` | Enterprise | Brave Search API key (optional; enables web_search) | _(empty)_ |
+| `ENTERPRISE_BRAVE_BUDGET` | Enterprise | Monthly Brave call budget | `1500` |
+
 ### Cron
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CRON_ENABLED` | Enable in-process cron scheduling | `true` |
-| `CRON_SECRET` | Bearer token for `POST /v1/internal/cron/*` HTTP triggers | _(empty)_ |
-| `CRON_DAILY_SCHEDULE` | Cron expression for daily library sync | `0 3 * * *` |
-| `CRON_RECOVERY_SCHEDULE` | Cron expression for stuck-job recovery | `*/15 * * * *` |
-| `CRON_WATCH_SCHEDULE` | Cron expression for watch source sync | `0 */6 * * *` |
-| `CRON_CATALOG_SCHEDULE` | Cron expression for catalog refresh | `0 4 * * *` |
+| Variable | Service | Description | Default |
+|----------|---------|-------------|---------|
+| `CRON_ENABLED` | API | Enable in-process cron scheduling | `true` |
+| `CRON_SECRET` | API | Bearer token for `POST /v1/internal/cron/*` HTTP triggers | _(empty)_ |
+| `CRON_DAILY_SCHEDULE` | API | Cron expression for daily library sync | `0 3 * * *` |
+| `CRON_RECOVERY_SCHEDULE` | API | Cron expression for stuck-job recovery | `*/15 * * * *` |
+| `CRON_WATCH_SCHEDULE` | API | Cron expression for watch source sync | `0 */6 * * *` |
+| `CRON_CATALOG_SCHEDULE` | API | Cron expression for catalog refresh | `0 4 * * *` |
 
 ### Optional integrations
 
-| Variable | Description |
-|----------|-------------|
-| `ITAD_API_KEY` | IsThereAnyDeal API key |
-| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | IGDB (Twitch) credentials for game metadata |
-| `MUSICBRAINZ_USER_AGENT` | Required by MusicBrainz rate limiting (format: `AppName/version (email)`) |
-| `TRAKT_CLIENT_ID` / `TRAKT_CLIENT_SECRET` | Trakt OAuth for watch module |
-| `TRAKT_REDIRECT_URI` | Trakt callback URL |
-| `TMDB_API_KEY` | TMDB API key for watch metadata (attribution required in UI) |
-| `ANILIST_CLIENT_ID` / `ANILIST_CLIENT_SECRET` | AniList OAuth |
-| `ANILIST_REDIRECT_URI` | AniList callback URL |
+| Variable | Service | Description |
+|----------|---------|-------------|
+| `ITAD_API_KEY` | API | IsThereAnyDeal API key |
+| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | API | IGDB (Twitch) credentials for game metadata |
+| `MUSICBRAINZ_USER_AGENT` | API | Required by MusicBrainz rate limiting (format: `AppName/version (email)`) |
+| `TRAKT_CLIENT_ID` / `TRAKT_CLIENT_SECRET` | API | Trakt OAuth for watch module |
+| `TRAKT_REDIRECT_URI` | API | Trakt callback URL |
+| `TMDB_API_KEY` | API + Enterprise | TMDB API key for watch metadata (attribution required in UI) |
+| `ANILIST_CLIENT_ID` / `ANILIST_CLIENT_SECRET` | API | AniList OAuth |
+| `ANILIST_REDIRECT_URI` | API | AniList callback URL |
 
 ---
 
@@ -779,6 +852,7 @@ Before going live, verify all secrets are set:
 - [ ] `SESSION_SECRET` — long random string (reject weak placeholders in non-local modes)
 - [ ] `STEAM_API_KEY` — [Steam Web API key](https://steamcommunity.com/dev/apikey)
 - [ ] `CRON_SECRET` — required for `/v1/internal/cron/*` HTTP callers (optional if you only use in-process cron)
+- [ ] `ENTERPRISE_INTERNAL_SECRET` — required when running the QEngine / enterprise stack (same value in API + QEngine)
 - [ ] Music ingest / watch webhook tokens — mint per-user ApiKeys in Settings (not env vars)
 - [ ] `TRAKT_CLIENT_ID` / `TRAKT_CLIENT_SECRET` — required for Trakt OAuth (watch module)
 - [ ] `TMDB_API_KEY` — required for watch metadata enrichment (keep TMDB attribution in the UI)
