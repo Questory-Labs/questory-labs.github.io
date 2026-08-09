@@ -13,9 +13,9 @@ export const DEFAULT_TITLE =
 export const DEFAULT_DESCRIPTION =
   "Play, listen, and watch — weekly insights across your Steam library, music, and media.";
 
-export const OG_IMAGE_PATH = "/og.png";
-export const OG_IMAGE_WIDTH = 1200;
-export const OG_IMAGE_HEIGHT = 630;
+export const OG_IMAGE_PATH = "/logo.png";
+export const OG_IMAGE_WIDTH = 800;
+export const OG_IMAGE_HEIGHT = 800;
 
 export const SCREENSHOTS_PATH = "/screenshots/";
 
