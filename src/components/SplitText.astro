@@ -1,0 +1,32 @@
+---
+/**
+ * Renders text as masked words and per-character spans for GSAP intros.
+ * Screen readers get the plain text; the split spans are aria-hidden.
+ */
+type Line = { text: string; class?: string };
+
+type Props = {
+  lines: Line[];
+};
+
+const { lines } = Astro.props;
+const plain = lines.map((line) => line.text).join(" ");
+---
+
+<span class="sr-only">{plain}</span>
+{
+  lines.map((line) => (
+    <span aria-hidden="true" class:list={["block", line.class]}>
+      {line.text.split(" ").map((word, i, words) => (
+        <>
+          <span class="qs-word">
+            {Array.from(word).map((char) => (
+              <span class="qs-char">{char}</span>
+            ))}
+          </span>
+          {i < words.length - 1 ? " " : null}
+        </>
+      ))}
+    </span>
+  ))
+}

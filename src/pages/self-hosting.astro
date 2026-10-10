@@ -1,0 +1,556 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import SplitText from "../components/SplitText.astro";
+import GuideReference from "../components/GuideReference.astro";
+import { Content as Guide, frontmatter, getHeadings } from "../docs/self-hosting.md";
+import { GITHUB_URL, LICENSE_URL } from "../data/features";
+import { SCREENSHOTS_PATH } from "../data/site";
+
+const headings = getHeadings();
+const RAW = "https://raw.githubusercontent.com/Questory-Labs/Questory/main/";
+
+/** Deployment modes from the guide's "Deployment modes" table. Lite is the server-rendered default. */
+const modes = [
+  { id: "lite", label: "Lite", profile: "selfhosted", env: ".env.selfhosted.example", pnpm: "docker:selfhosted", db: "SQLite volume", cache: "In-memory, inline sync", ram: "~512 MB", best: "Home server, single user, Raspberry Pi" },
+  { id: "full", label: "Full", profile: "selfhosted-full", env: ".env.selfhosted-full.example", pnpm: "docker:selfhosted-full", db: "PostgreSQL", cache: "Redis + BullMQ", ram: "~1 GB+", best: "Always-on self-host, multiple users" },
+  { id: "prod", label: "Production", profile: "production", env: ".env.production.example", pnpm: "docker:prod", db: "PostgreSQL", cache: "Redis + BullMQ", ram: "~1 GB+", best: "Public HTTPS, multi-user instance" },
+];
+const lite = modes[0];
+
+type Part = string | { v: "profile" | "env" | "pnpm" };
+type Line = { kind: "cmd" | "note" | "env"; parts: Part[] };
+const cmd = (...parts: Part[]): Line => ({ kind: "cmd", parts });
+const note = (text: string): Line => ({ kind: "note", parts: [text] });
+const envLine = (text: string): Line => ({ kind: "env", parts: [text] });
+const PROFILE = { v: "profile" } as const;
+const ENV = { v: "env" } as const;
+const PNPM = { v: "pnpm" } as const;
+
+const heroLines: Line[] = [
+  cmd(`curl -LO ${RAW}docker-compose.yml`),
+  cmd(`curl -LO ${RAW}`, ENV),
+  cmd("cp ", ENV, " .env"),
+  cmd("docker compose --profile ", PROFILE, " --env-file .env up -d"),
+  note("# web → http://localhost:3000"),
+  note("# api → http://localhost:4000"),
+];
+
+const stepSets = [
+  {
+    id: "prebuilt",
+    label: "Prebuilt images",
+    steps: [
+      { title: "Download", desc: "No clone, no build. Grab the compose file and the env template for your stack.", lang: "bash", lines: [cmd("mkdir questory && cd questory"), cmd(`curl -LO ${RAW}docker-compose.yml`), cmd(`curl -LO ${RAW}`, ENV)] },
+      { title: "Configure", desc: "Copy the template, then set at minimum your session secret and Steam key.", lang: "bash · .env", lines: [cmd("cp ", ENV, " .env"), note("# then in .env:"), envLine("SESSION_SECRET=<random-string-at-least-16-chars>"), envLine("STEAM_API_KEY=<your-steam-web-api-key>")] },
+      { title: "Start", desc: "Pulls the prebuilt images from GHCR and brings the stack up in the background.", lang: "bash", lines: [cmd("docker compose --profile ", PROFILE, " --env-file .env up -d")] },
+    ],
+  },
+  {
+    id: "source",
+    label: "From source",
+    steps: [
+      { title: "Clone", desc: "For custom changes. Builds the images locally from source.", lang: "bash", lines: [cmd("git clone https://github.com/Questory-Labs/Questory.git"), cmd("cd Questory")] },
+      { title: "Configure", desc: "Copy a template and edit your secrets. ALLOWED_STEAM_IDS is optional.", lang: "bash · .env", lines: [cmd("cp ", ENV, " .env"), note("# Edit: SESSION_SECRET, STEAM_API_KEY, optional ALLOWED_STEAM_IDS")] },
+      { title: "Build & start", desc: "Use the pnpm shortcut, or Docker Compose directly.", lang: "bash", lines: [cmd("pnpm ", PNPM, " -- --build"), note("# or:"), cmd("docker compose --profile ", PROFILE, " --env-file .env up -d --build")] },
+    ],
+  },
+];
+
+const images = [
+  { name: "API", image: "questorylabs-api", enterprise: false },
+  { name: "Web", image: "questorylabs-web", enterprise: false },
+  { name: "QEngine", image: "questorylabs-qengine", enterprise: true },
+];
+const registries = [
+  { id: "ghcr", label: "GHCR", prefix: "ghcr.io/questory-labs/" },
+  { id: "hub", label: "Docker Hub", prefix: "santoshpanna/" },
+];
+
+const envVars = [
+  { key: "APP_MODE", service: "API · required", tone: "accent", html: "Boot mode: <code>local</code>, <code>selfhosted</code>, <code>selfhosted-full</code> or <code>production</code>." },
+  { key: "SESSION_SECRET", service: "API + Enterprise · required", tone: "accent", html: "Session signing secret, at least 16 characters. Placeholders are rejected outside local mode." },
+  { key: "STEAM_API_KEY", service: "API · required", tone: "accent", html: 'Your Steam Web API key from <a href="https://steamcommunity.com/dev/apikey">steamcommunity.com/dev/apikey</a>.' },
+  { key: "DATABASE_PROVIDER", service: "API", tone: "warm", html: "<code>sqlite</code> for lite, <code>postgresql</code> for full and production. Pairs with <code>DATABASE_URL</code>." },
+  { key: "REDIS_URL", service: "API", tone: "warm", html: "Turns on BullMQ queues and shared cache. Leave empty for in-memory." },
+];
+
+/** From the guide's "Secrets checklist". */
+const checks = [
+  ["SESSION_SECRET", "Long random string; weak placeholders are rejected outside local mode"],
+  ["STEAM_API_KEY", "Your Steam Web API key"],
+  ["CRON_SECRET", "For /v1/internal/cron/* HTTP callers; optional with in-process cron"],
+  ["ENTERPRISE_INTERNAL_SECRET", "When running QEngine; same value in API and QEngine"],
+  ["Music & watch tokens", "Mint per-user API keys in Settings, not env vars"],
+  ["TRAKT_CLIENT_ID / TRAKT_CLIENT_SECRET", "For Trakt OAuth in the watch module"],
+  ["TMDB_API_KEY", "Watch metadata enrichment; keep TMDB attribution in the UI"],
+  ["Postgres password", "Change the compose default on any internet-facing host"],
+  [".env stays private", "Never commit .env to version control"],
+];
+
+const deeper = [
+  { slug: "reverse-proxy-setup", title: "Reverse proxy", sub: "Caddy, Nginx, Traefik" },
+  { slug: "enterprise-stack-qengine", title: "QEngine stack", sub: "Recommendations, opt-in" },
+  { slug: "optional-modules", title: "Music, Watch, Read", sub: "Enable the optional modules" },
+  { slug: "backups", title: "Backups", sub: "SQLite and PostgreSQL" },
+  { slug: "daily-sync-cron", title: "Daily sync cron", sub: "In-process or external" },
+  { slug: "troubleshooting", title: "Troubleshooting", sub: "Logins, cookies, databases" },
+].filter((item) => headings.some((h) => h.slug === item.slug));
+
+const specs = ["Docker 20.10+", "Compose v2", "~512 MB RAM (lite)", "Steam Web API key"];
+---
+
+<BaseLayout title={`${frontmatter.title} — Questory`} description={frontmatter.description}>
+  <SiteHeader />
+  <main>
+    <!-- Hero -->
+    <section class="qs-hero mx-auto flex max-w-[1240px] flex-wrap items-center gap-[clamp(40px,5vw,72px)] px-4 pb-16 pt-14 sm:px-6 md:pb-24 md:pt-28 lg:px-10">
+      <div class="min-w-0 flex-[1_1_460px]">
+        <p class="qs-pill qs-eyebrow">The self-host guide</p>
+        <h1 class="font-display mt-4 text-[clamp(54px,7.6vw,112px)] font-extrabold leading-[0.9] tracking-[-0.05em]">
+          <SplitText lines={[{ text: "Run it on" }, { text: "your own box.", class: "text-[var(--accent)]" }]} />
+        </h1>
+        <p class="qs-hero-sub mt-6 max-w-[520px] text-[19px] leading-relaxed text-[var(--muted)]">
+          Prebuilt Docker images, three Compose profiles, one <code class="font-mono text-[0.9em] text-[var(--ink)]">.env</code>. From a Raspberry Pi to a public HTTPS instance.
+        </p>
+        <div class="qs-specs mt-8 flex flex-wrap gap-2.5">
+          {specs.map((spec) => <span class="rounded-full border border-[var(--line-strong)] bg-[var(--surface)] px-3.5 py-2 text-sm">{spec}</span>)}
+        </div>
+      </div>
+      <div class="qs-hero-term min-w-0 flex-[1.15_1_520px]">
+        <div class="hatch" data-tilt>
+          <div class="overflow-hidden rounded-2xl border border-[var(--line-strong)] bg-[var(--term)] shadow-[0_50px_120px_rgba(0,0,0,0.55)]">
+            <div class="flex items-center gap-[7px] border-b border-[var(--line)] bg-[var(--paper)] px-4 py-3">
+              <span aria-hidden="true" class="size-2.5 rounded-full bg-[var(--danger)]"></span>
+              <span aria-hidden="true" class="size-2.5 rounded-full bg-[var(--warm)]"></span>
+              <span aria-hidden="true" class="size-2.5 rounded-full bg-[var(--accent)]"></span>
+              <span class="ml-3.5 font-mono text-xs text-[var(--muted)]">~/questory · <span data-var="label">{lite.label}</span></span>
+            </div>
+            <div class="qs-code p-[clamp(18px,2.4vw,28px)] text-[clamp(12px,1.05vw,14px)] leading-[1.9]">
+              {
+                heroLines.map((line) => (
+                  <div class:list={["qs-hline", line.kind === "note" && "text-[var(--muted)]"]}>
+                    {line.kind === "cmd" && <span class="text-[var(--accent)]">$ </span>}
+                    {line.parts.map((part) => (typeof part === "string" ? part : <span data-var={part.v}>{lite[part.v]}</span>))}
+                  </div>
+                ))
+              }
+              <div class="qs-hline"><span class="text-[var(--accent)]">$ </span><span class="qs-caret" aria-hidden="true"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 01 Mode picker -->
+    <section id="modes" class="border-t border-[var(--line)] bg-[var(--panel)]">
+      <div class="mx-auto max-w-[1240px] px-4 py-20 sm:px-6 md:py-32 lg:px-10">
+        <div class="qs-up flex flex-wrap items-end justify-between gap-x-12 gap-y-4">
+          <div class="min-w-0 flex-[1_1_480px]">
+            <p class="qs-eyebrow">01 — Pick your stack</p>
+            <h2 class="font-display mt-4 text-[clamp(40px,5vw,72px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Small box or<br />big box?</h2>
+          </div>
+          <p class="max-w-[400px] flex-[1_1_300px] text-[17px] leading-relaxed text-[var(--muted)]">Every command on this page follows your pick. Switch any time; the app is the same.</p>
+        </div>
+        <div role="group" aria-label="Deployment mode" class="qs-modes mt-12 grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+          {
+            modes.map((mode) => (
+              <button
+                type="button"
+                class="qs-opt qs-mode block w-full rounded-[18px] border-[1.5px] border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px] text-left text-[var(--ink)]"
+                data-mode={mode.id}
+                data-profile={mode.profile}
+                data-env={mode.env}
+                data-pnpm={mode.pnpm}
+                data-label={mode.label}
+                aria-pressed={mode.id === lite.id ? "true" : "false"}
+              >
+                <span class="flex items-center justify-between gap-3">
+                  <span class="font-mono text-xs uppercase tracking-[0.1em] text-[var(--muted)]">--profile {mode.profile}</span>
+                  <span class="qs-mode-dot grid size-[26px] place-items-center rounded-full">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--bg-0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+                  </span>
+                </span>
+                <span class="font-display mt-[22px] block text-[40px] font-extrabold leading-none tracking-[-0.04em]">{mode.label}</span>
+                <span class="mt-2.5 block text-base text-[var(--muted-strong)]">{mode.best}</span>
+                <span class="mt-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t border-[var(--line)] pt-[18px] text-sm">
+                  <span class="text-[var(--muted)]">Database</span><span>{mode.db}</span>
+                  <span class="text-[var(--muted)]">Cache</span><span>{mode.cache}</span>
+                  <span class="text-[var(--muted)]">Memory</span><span>{mode.ram}</span>
+                </span>
+              </button>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 Steps -->
+    <section id="install" class="mx-auto max-w-[1240px] px-4 py-20 sm:px-6 md:py-36 lg:px-10">
+      <div class="qs-up flex flex-wrap items-end justify-between gap-x-12 gap-y-6">
+        <div class="min-w-0 flex-[1_1_480px]">
+          <p class="qs-eyebrow">02 — Three steps</p>
+          <h2 class="font-display mt-4 text-[clamp(40px,5vw,72px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Copy. Paste.<br />Play.</h2>
+        </div>
+        <div role="group" aria-label="Install method" class="inline-flex gap-1 rounded-full border border-[var(--line-strong)] bg-[var(--bg-1)] p-[5px]">
+          {
+            stepSets.map((set, i) => (
+              <button type="button" class="qs-opt qs-seg min-h-[42px] rounded-full border border-transparent px-[18px] text-sm font-semibold text-[var(--muted-strong)]" data-source={set.id} aria-pressed={i === 0 ? "true" : "false"}>
+                {set.label}
+              </button>
+            ))
+          }
+        </div>
+      </div>
+
+      {
+        stepSets.map((set, si) => (
+          <div class="qs-steps relative mt-16 flex flex-col gap-12 pl-[clamp(56px,7vw,88px)]" data-steps={set.id} hidden={si !== 0}>
+            <div aria-hidden="true" class="absolute bottom-2 left-[clamp(21px,2.6vw,27px)] top-2 w-0.5 overflow-hidden rounded bg-[var(--line)]">
+              <div class="qs-line size-full origin-top bg-[var(--accent)]"></div>
+            </div>
+            {set.steps.map((step, i) => (
+              <div class="qs-step relative">
+                <span class="qs-stepnum font-display absolute left-[calc(-1*clamp(56px,7vw,88px))] top-0 grid size-[clamp(44px,5.4vw,56px)] place-items-center rounded-full border-2 border-[var(--accent)] bg-[var(--bg-0)] text-xl font-extrabold text-[var(--accent)]">
+                  {i + 1}
+                </span>
+                <h3 class="font-display mt-1.5 text-[clamp(26px,2.6vw,34px)] font-bold tracking-[-0.02em]">{step.title}</h3>
+                <p class="mt-2 max-w-[620px] leading-relaxed text-[var(--muted)]">{step.desc}</p>
+                <div class="mt-5 overflow-hidden rounded-[14px] border border-[var(--line-strong)] bg-[var(--term)]">
+                  <div class="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--paper)] py-2 pl-4 pr-2">
+                    <span class="font-mono text-xs text-[var(--muted)]">{step.lang}</span>
+                    <button type="button" class="qs-copy inline-flex min-h-9 items-center gap-2 rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-[13px] font-semibold hover:bg-[rgba(242,239,232,0.1)]" aria-label={`Copy ${step.title} commands`}>
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>
+                      <span class="qs-copy-label">Copy</span>
+                    </button>
+                  </div>
+                  <div class="qs-code qs-codebody px-5 py-[18px] text-sm leading-[1.9]">
+                    {step.lines.map((line) => (
+                      <div
+                        class:list={[line.kind === "note" && "text-[var(--muted)]", line.kind === "env" && "text-[var(--warm)]"]}
+                        data-copy={line.kind === "note" ? undefined : ""}
+                      >
+                        {line.kind === "cmd" && <span class="text-[var(--accent)]" aria-hidden="true">$ </span>}
+                        <span class="qs-copy-text">
+                          {line.parts.map((part) => (typeof part === "string" ? part : <span data-var={part.v}>{lite[part.v]}</span>))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))
+      }
+
+      <div class="qs-after mt-[72px] grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+        <div class="hatch"><div class="h-full rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px]"><p class="font-mono text-xs uppercase tracking-[0.1em] text-[var(--muted)]">Web UI</p><p class="mt-3 font-mono text-[22px] text-[var(--accent)]">localhost:3000</p><p class="mt-2.5 text-sm text-[var(--muted)]">Or your <code class="font-mono">WEB_ORIGIN</code></p></div></div>
+        <div class="hatch"><div class="h-full rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px]"><p class="font-mono text-xs uppercase tracking-[0.1em] text-[var(--muted)]">API</p><p class="mt-3 font-mono text-[22px] text-[var(--accent)]">localhost:4000</p><p class="mt-2.5 text-sm text-[var(--muted)]">Or your public API URL</p></div></div>
+        <div class="hatch"><div class="h-full rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px]"><p class="font-mono text-xs uppercase tracking-[0.1em] text-[var(--muted)]">Health</p><p class="mt-3 font-mono text-[22px] text-[var(--warm)]">GET /health</p><p class="mt-2.5 text-sm text-[var(--muted)]">Mode, database, Redis, allowlist and module status</p></div></div>
+      </div>
+    </section>
+
+    <!-- 03 Images -->
+    <section id="images" class="border-t border-[var(--line)] bg-[var(--panel)]">
+      <div class="mx-auto flex max-w-[1240px] flex-wrap items-start gap-[clamp(40px,6vw,80px)] px-4 py-20 sm:px-6 md:py-32 lg:px-10">
+        <div class="qs-up min-w-0 flex-[1_1_340px]">
+          <p class="qs-eyebrow">03 — Images</p>
+          <h2 class="font-display mt-4 text-[clamp(40px,5vw,68px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Built on every<br />commit.</h2>
+          <p class="mt-5 text-[17px] leading-relaxed text-[var(--muted)]">Public on both registries, no login needed. Tagged by Git SHA and semantic version, so you can pin a release.</p>
+          <div role="group" aria-label="Registry" class="mt-7 inline-flex gap-1 rounded-full border border-[var(--line-strong)] bg-[var(--bg-1)] p-[5px]">
+            {
+              registries.map((registry, i) => (
+                <button type="button" class="qs-opt qs-seg min-h-[42px] rounded-full border border-transparent px-[18px] text-sm font-semibold text-[var(--muted-strong)]" data-registry={registry.prefix} aria-pressed={i === 0 ? "true" : "false"}>
+                  {registry.label}
+                </button>
+              ))
+            }
+          </div>
+        </div>
+        <div class="qs-imgs flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
+          {
+            images.map((img) => (
+              <div class="qs-imgrow flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] px-[22px] py-5">
+                <span class="font-display flex-[0_0_110px] text-[22px] font-bold">{img.name}</span>
+                <code class="min-w-0 flex-[1_1_280px] break-all font-mono text-sm text-[var(--muted-strong)]">
+                  <span class="qs-copy-text"><span data-var="registry">{registries[0].prefix}</span>{img.image}:latest</span>
+                </code>
+                {img.enterprise && (
+                  <span class="rounded-md border border-[rgba(224,184,106,0.35)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--warm)]">Enterprise</span>
+                )}
+                <button type="button" class="qs-copy min-h-9 rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-[13px] font-semibold hover:bg-[rgba(242,239,232,0.1)]" aria-label={`Copy ${img.name} image reference`}>
+                  <span class="qs-copy-label">Copy</span>
+                </button>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 Env -->
+    <section id="env" class="mx-auto max-w-[1240px] px-4 py-20 sm:px-6 md:py-36 lg:px-10">
+      <div class="qs-up">
+        <p class="qs-eyebrow">04 — The .env that matters</p>
+        <h2 class="font-display mt-4 text-[clamp(40px,5vw,72px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Five variables.<br />That's the setup.</h2>
+      </div>
+      <div class="qs-envgrid mt-[52px] grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+        {
+          envVars.map((v) => (
+            <div class="qs-env rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px]">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <code class:list={["font-mono text-[17px]", v.tone === "warm" ? "text-[var(--warm)]" : "text-[var(--accent)]"]}>{v.key}</code>
+                <span class="font-mono text-[11px] text-[var(--muted)]">{v.service}</span>
+              </div>
+              <p class="mt-3 leading-relaxed text-[var(--muted)] [&_a]:text-[var(--ink)] [&_a]:underline [&_a]:underline-offset-[3px] [&_code]:font-mono [&_code]:text-[var(--ink)]" set:html={v.html} />
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- 05 Checklist -->
+    <section id="secrets" class="border-t border-[var(--line)] bg-[var(--panel)]">
+      <div class="mx-auto flex max-w-[1240px] flex-wrap items-start gap-[clamp(40px,6vw,80px)] px-4 py-20 sm:px-6 md:py-32 lg:px-10">
+        <div class="qs-up min-w-0 flex-[1_1_340px]">
+          <p class="qs-eyebrow">05 — Before you go live</p>
+          <h2 class="font-display mt-4 text-[clamp(40px,5vw,68px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Secrets<br />checklist.</h2>
+          <div class="mt-8">
+            <div class="flex items-baseline justify-between font-mono text-sm">
+              <span class="text-[var(--muted)]">Ready</span>
+              <span class="font-display text-[28px] font-extrabold" aria-live="polite"><span class="qs-done">0</span> / {checks.length}</span>
+            </div>
+            <div class="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(242,239,232,0.08)]"><div class="qs-bar" style="width: 0%"></div></div>
+            <p class="qs-shipit mt-[22px] inline-flex items-center gap-2.5 rounded-[10px] bg-[var(--accent)] px-4 py-2.5 font-bold text-[var(--bg-0)]" hidden>
+              Ship it.
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+            </p>
+          </div>
+        </div>
+        <div class="qs-checks flex min-w-0 flex-[999_1_560px] flex-col gap-2.5">
+          {
+            checks.map(([key, desc]) => (
+              <label class="qs-check">
+                <input type="checkbox" />
+                <span class="qs-box">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--bg-0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+                </span>
+                <span class="min-w-0">
+                  <code class="block break-all font-mono text-[15px]">{key}</code>
+                  <span class="mt-1 block text-sm text-[var(--muted)]">{desc}</span>
+                </span>
+              </label>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Updating + license -->
+    <section class="mx-auto grid max-w-[1240px] gap-7 px-4 py-20 sm:px-6 md:py-36 lg:px-10 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
+      <div class="qs-up rounded-[18px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[clamp(24px,3vw,36px)]">
+        <p class="qs-eyebrow">Updating</p>
+        <h3 class="font-display mt-3.5 text-[38px] font-extrabold tracking-[-0.035em]">Two commands.</h3>
+        <div class="qs-code mt-5 rounded-xl border border-[var(--line)] bg-[var(--term)] px-5 py-[18px] text-[13px] leading-[1.9]">
+          <div><span class="text-[var(--accent)]">$ </span>docker compose pull</div>
+          <div><span class="text-[var(--accent)]">$ </span>docker compose --profile <span data-var="profile">{lite.profile}</span> --env-file .env up -d</div>
+        </div>
+        <p class="mt-[18px] text-[15px] leading-relaxed text-[var(--muted)]">Schema migrations run on container start. Back up your database first.</p>
+      </div>
+      <div class="qs-up rounded-[18px] border border-[rgba(224,184,106,0.3)] bg-[var(--bg-1)] p-[clamp(24px,3vw,36px)]">
+        <p class="font-mono text-[13px] uppercase tracking-[0.12em] text-[var(--warm)]">License</p>
+        <h3 class="font-display mt-3.5 text-[38px] font-extrabold tracking-[-0.035em]">Free for you. Not for sale.</h3>
+        <div class="mt-5 grid gap-3 text-[15px] leading-relaxed">
+          <p class="flex gap-3"><span class="flex-none font-bold text-[var(--accent)]">Yes</span><span class="text-[var(--muted-strong)]">Personal use, hobby projects and other noncommercial purposes.</span></p>
+          <p class="flex gap-3"><span class="flex-none font-bold text-[var(--danger)]">No</span><span class="text-[var(--muted-strong)]">Selling it, or charging for access or hosting as a product.</span></p>
+        </div>
+        <a href={LICENSE_URL} target="_blank" rel="noopener noreferrer" class="qs-link mt-5 inline-flex min-h-11 items-center font-semibold underline underline-offset-4">PolyForm Noncommercial 1.0.0</a>
+      </div>
+    </section>
+
+    <!-- Going deeper -->
+    <section class="border-t border-[var(--line)]">
+      <div class="mx-auto max-w-[1240px] px-4 py-20 sm:px-6 md:py-28 lg:px-10">
+        <h2 class="qs-up font-display text-[clamp(34px,4vw,54px)] font-extrabold tracking-[-0.04em]">Going deeper</h2>
+        <div class="qs-deep mt-9 grid gap-px overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line)] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+          {
+            deeper.map((item) => (
+              <a href={`#${item.slug}`} class="qs-deepl flex items-center justify-between gap-3 bg-[var(--bg-0)] p-[26px] transition-colors hover:bg-[var(--bg-1)]">
+                <span>
+                  <span class="font-display block text-[21px] font-bold">{item.title}</span>
+                  <span class="mt-1 block text-sm text-[var(--muted)]">{item.sub}</span>
+                </span>
+                <span aria-hidden="true" class="text-[var(--accent)]">↓</span>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Full reference -->
+    <section id="guide" class="border-t border-[var(--line)] bg-[var(--panel)]">
+      <div class="mx-auto max-w-[1280px] px-6 pt-20 md:pt-28">
+        <p class="qs-eyebrow">The full guide</p>
+        <h2 class="qs-up font-display mt-4 text-[clamp(36px,4.4vw,60px)] font-extrabold leading-none tracking-[-0.04em]">{frontmatter.title}</h2>
+        <p class="mt-4 max-w-[720px] text-lg text-[var(--muted)]">{frontmatter.description}</p>
+      </div>
+      <GuideReference headings={headings}>
+        <Guide />
+      </GuideReference>
+    </section>
+
+    <!-- CTA -->
+    <section class="qs-final mx-auto max-w-[1240px] px-4 py-28 text-center sm:px-6 md:py-44 lg:px-10">
+      <h2 class="qs-final-h font-display mx-auto max-w-[960px] text-[clamp(46px,7.5vw,110px)] font-extrabold leading-[0.92] tracking-[-0.05em]">
+        Your box.<br /><span class="text-[var(--accent)]">Your stories.</span>
+      </h2>
+      <div class="qs-final-cta mt-11 flex flex-wrap justify-center gap-3.5">
+        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" class="qs-mag qs-btn-primary inline-flex min-h-14 items-center gap-2.5 rounded-xl bg-[var(--accent)] px-[30px] text-[17px] font-semibold text-[var(--bg-0)]">
+          Get Questory
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg>
+        </a>
+        <a href={SCREENSHOTS_PATH} class="qs-mag qs-btn-ghost inline-flex min-h-14 items-center rounded-xl border border-[var(--line-strong)] bg-[var(--bg-1)] px-[30px] text-[17px] font-semibold">Browse screenshots</a>
+      </div>
+    </section>
+  </main>
+  <SiteFooter />
+</BaseLayout>
+
+<script>
+  import { gsap, ScrollTrigger, MOTION_QUERY, charsIn, initChrome } from "../scripts/motion";
+
+  initChrome();
+  const motionOk = () => window.matchMedia(MOTION_QUERY).matches;
+
+  let typeTl: gsap.core.Timeline | undefined;
+  function typeHero(delay = 0) {
+    if (!motionOk()) return;
+    typeTl?.kill();
+    typeTl = gsap
+      .timeline({ delay })
+      .fromTo(".qs-hline", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.7, ease: "steps(30)", stagger: 0.38 });
+  }
+
+  const mm = gsap.matchMedia();
+  mm.add(MOTION_QUERY, () => {
+    gsap
+      .timeline({ defaults: { ease: "expo.out" } })
+      .from(".qs-pill", { y: 20, opacity: 0, duration: 0.8 }, 0.3)
+      .add(charsIn(".qs-hero h1"), 0.5)
+      .from(".qs-hero-sub, .qs-specs > *", { y: 30, opacity: 0, duration: 1, stagger: 0.07 }, 0.9)
+      .from(".qs-hero-term", { x: 120, rotationY: -24, opacity: 0, transformPerspective: 1600, duration: 1.8 }, 0.8);
+    typeHero(1.4);
+
+    gsap.to(".qs-hero-term", { yPercent: -12, ease: "none", scrollTrigger: { trigger: ".qs-hero", start: "top top", end: "bottom top", scrub: 0.5 } });
+    gsap.from(".qs-mode", { y: 90, opacity: 0, scale: 0.96, stagger: 0.1, duration: 1.1, ease: "expo.out", clearProps: "transform", scrollTrigger: { trigger: ".qs-modes", start: "top 85%" } });
+
+    gsap.utils.toArray<HTMLElement>(".qs-steps").forEach((steps) => {
+      gsap.fromTo(steps.querySelector(".qs-line"), { scaleY: 0 }, { scaleY: 1, ease: "none", scrollTrigger: { trigger: steps, start: "top 70%", end: "bottom 60%", scrub: 0.5 } });
+      steps.querySelectorAll<HTMLElement>(".qs-step").forEach((step) => {
+        const num = step.querySelector(".qs-stepnum");
+        gsap
+          .timeline({ scrollTrigger: { trigger: step, start: "top 78%" } })
+          .from(num, { scale: 0, rotation: -90, duration: 0.9, ease: "back.out(2)" })
+          .from(Array.from(step.children).filter((c) => c !== num), { x: 80, opacity: 0, stagger: 0.08, duration: 1.1, ease: "expo.out" }, "-=0.6");
+      });
+    });
+    gsap.from(".qs-after > *", { y: 80, opacity: 0, scale: 0.92, stagger: 0.1, duration: 1.1, ease: "expo.out", scrollTrigger: { trigger: ".qs-after", start: "top 88%" } });
+    gsap.from(".qs-imgrow", { x: 140, opacity: 0, stagger: 0.12, duration: 1.2, ease: "expo.out", scrollTrigger: { trigger: ".qs-imgs", start: "top 85%" } });
+    gsap.from(".qs-env", { y: 100, opacity: 0, rotation: (i: number) => [-4, 3, -2, 4, -3][i % 5], stagger: 0.08, duration: 1.2, ease: "expo.out", scrollTrigger: { trigger: ".qs-envgrid", start: "top 85%" } });
+    gsap.from(".qs-check", { x: 60, opacity: 0, stagger: 0.06, duration: 0.9, ease: "expo.out", scrollTrigger: { trigger: ".qs-checks", start: "top 85%" } });
+    gsap.from(".qs-deepl", { opacity: 0, y: 40, stagger: 0.06, duration: 0.9, ease: "expo.out", scrollTrigger: { trigger: ".qs-deep", start: "top 88%" } });
+    gsap.from(".qs-final-h", { scale: 2, opacity: 0, filter: "blur(12px)", ease: "none", scrollTrigger: { trigger: ".qs-final", start: "top bottom", end: "center 60%", scrub: 0.5 } });
+    gsap.from(".qs-final-cta > *", { y: 60, opacity: 0, stagger: 0.1, duration: 1, ease: "expo.out", scrollTrigger: { trigger: ".qs-final-cta", start: "top 92%" } });
+  });
+
+  const setVar = (name: string, value: string) => {
+    document.querySelectorAll<HTMLElement>(`[data-var="${name}"]`).forEach((el) => (el.textContent = value));
+  };
+  const pressOnly = (buttons: NodeListOf<HTMLButtonElement>, active: HTMLButtonElement) =>
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b === active)));
+
+  // Deployment mode: rewrites every command on the page.
+  const modeButtons = document.querySelectorAll<HTMLButtonElement>("[data-mode]");
+  modeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.getAttribute("aria-pressed") === "true") return;
+      pressOnly(modeButtons, button);
+      const { profile = "", env = "", pnpm = "", label = "" } = button.dataset;
+      setVar("profile", profile);
+      setVar("env", env);
+      setVar("pnpm", pnpm);
+      setVar("label", label);
+      typeHero();
+      if (motionOk()) gsap.fromTo(".qs-steps:not([hidden]) .qs-codebody", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.6, stagger: 0.08, ease: "expo.out" });
+    });
+  });
+
+  // Install method: prebuilt images vs. from source.
+  const sourceButtons = document.querySelectorAll<HTMLButtonElement>("[data-source]");
+  sourceButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      pressOnly(sourceButtons, button);
+      document.querySelectorAll<HTMLElement>("[data-steps]").forEach((set) => {
+        set.hidden = set.dataset.steps !== button.dataset.source;
+      });
+      ScrollTrigger.refresh();
+      if (motionOk()) gsap.fromTo(".qs-steps:not([hidden]) .qs-step", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: "expo.out" });
+    });
+  });
+
+  // Registry
+  const registryButtons = document.querySelectorAll<HTMLButtonElement>("[data-registry]");
+  registryButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      pressOnly(registryButtons, button);
+      setVar("registry", button.dataset.registry ?? "");
+      if (motionOk()) gsap.fromTo(".qs-imgrow code", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.06, ease: "power3.out" });
+    });
+  });
+
+  // Copy buttons copy the commands in their block (comments excluded).
+  document.querySelectorAll<HTMLButtonElement>(".qs-copy").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const scope = button.closest(".qs-step, .qs-imgrow");
+      if (!scope) return;
+      const lines = scope.matches(".qs-step")
+        ? Array.from(scope.querySelectorAll("[data-copy] .qs-copy-text"))
+        : Array.from(scope.querySelectorAll(".qs-copy-text"));
+      const text = lines.map((el) => el.textContent?.trim() ?? "").join("\n");
+      const label = button.querySelector(".qs-copy-label");
+      try {
+        await navigator.clipboard.writeText(text);
+        if (label) label.textContent = "Copied";
+      } catch {
+        if (label) label.textContent = "Press Ctrl+C";
+      }
+      window.setTimeout(() => {
+        if (label) label.textContent = "Copy";
+      }, 1600);
+    });
+  });
+
+  // Secrets checklist
+  const boxes = document.querySelectorAll<HTMLInputElement>(".qs-check input");
+  const done = document.querySelector(".qs-done");
+  const bar = document.querySelector<HTMLElement>(".qs-bar");
+  const shipIt = document.querySelector<HTMLElement>(".qs-shipit");
+  boxes.forEach((box) => {
+    box.addEventListener("change", () => {
+      const count = Array.from(boxes).filter((b) => b.checked).length;
+      if (done) done.textContent = String(count);
+      if (bar) bar.style.width = `${Math.round((count / boxes.length) * 100)}%`;
+      if (!shipIt) return;
+      const complete = count === boxes.length;
+      if (complete && shipIt.hidden) {
+        shipIt.hidden = false;
+        if (motionOk()) gsap.fromTo(shipIt, { scale: 0.4, opacity: 0, rotation: -8 }, { scale: 1, opacity: 1, rotation: 0, duration: 1, ease: "elastic.out(1, 0.45)" });
+      } else if (!complete) {
+        shipIt.hidden = true;
+      }
+    });
+  });
+</script>

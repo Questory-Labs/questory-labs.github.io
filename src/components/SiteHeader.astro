@@ -1,50 +1,46 @@
 ---
 import BrandMark from "./BrandMark.astro";
 import { GITHUB_URL, SELF_HOST_PATH } from "../data/features";
+import { SCREENSHOTS_PATH } from "../data/site";
 
 const path = Astro.url.pathname;
 const isHome = path === "/";
-const screenshotsHref = isHome ? "#screenshots" : "/screenshots/";
-const screenshotsActive = path.startsWith("/screenshots");
+
+const links = [
+  { href: isHome ? "#play" : "/#play", label: "Features", active: false },
+  { href: SCREENSHOTS_PATH, label: "Screenshots", active: path.startsWith(SCREENSHOTS_PATH) },
+  { href: SELF_HOST_PATH, label: "Self-host", active: path.startsWith(SELF_HOST_PATH) },
+];
 ---
 
-<header class="relative z-20 border-b border-[var(--line)]">
-  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-    <BrandMark size="sm" />
-    <nav class="flex flex-wrap items-center justify-end gap-4 text-sm text-[var(--muted)]">
+<header class="qs-nav">
+  <nav
+    class="qs-nav-inner mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3.5 sm:px-6 lg:px-10"
+    aria-label="Primary"
+  >
+    <BrandMark size="sm" wordmarkClass="text-xl" />
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-[15px] font-medium sm:gap-x-8">
       {
-        isHome ? (
-          <a href="#features" class="transition hover:text-[var(--ink)]">Features</a>
-        ) : (
-          <a href="/#features" class="transition hover:text-[var(--ink)]">Features</a>
-        )
+        links.map((link) => (
+          <a
+            href={link.href}
+            class:list={["qs-link", link.active && "!text-[var(--ink)]"]}
+            aria-current={link.active ? "page" : undefined}
+          >
+            {link.label}
+          </a>
+        ))
       }
-      <a
-        href={screenshotsHref}
-        class:list={[
-          "transition hover:text-[var(--ink)]",
-          screenshotsActive && "text-[var(--accent)]",
-        ]}
-      >
-        Screenshots
-      </a>
-      <a
-        href={SELF_HOST_PATH}
-        class:list={[
-          "transition hover:text-[var(--ink)]",
-          path.startsWith(SELF_HOST_PATH) && "text-[var(--accent)]",
-        ]}
-      >
-        Self-host
-      </a>
-      <a
-        href={GITHUB_URL}
-        class="transition hover:text-[var(--accent)]"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        GitHub
-      </a>
-    </nav>
-  </div>
+    </div>
+    <a
+      href={GITHUB_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="qs-mag qs-btn-primary hidden min-h-11 items-center gap-2 rounded-[9px] bg-[var(--accent)] px-[18px] text-sm font-semibold !text-[var(--bg-0)] sm:inline-flex"
+    >
+      Star on GitHub
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg>
+    </a>
+  </nav>
+  <div class="qs-progress" aria-hidden="true"></div>
 </header>

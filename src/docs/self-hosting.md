@@ -1,5 +1,4 @@
 ---
-layout: ../layouts/DocsLayout.astro
 title: Self-hosting Questory
 description: The complete guide — prebuilt Docker images, Docker Compose profiles, environment configuration, reverse proxy setup, backups, and optional modules.
 ---

@@ -35,6 +35,10 @@ const {
     <title>{title}</title>
   </head>
   <body>
-    <slot />
+    <div class="qs-cdot" aria-hidden="true"></div>
+    <div class="qs-cring" aria-hidden="true"><span class="qs-cring-label">View</span></div>
+    <div class="overflow-x-clip">
+      <slot />
+    </div>
   </body>
 </html>

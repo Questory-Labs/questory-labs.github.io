@@ -1,34 +1,55 @@
 ---
-import BaseLayout from "./BaseLayout.astro";
-import SiteHeader from "../components/SiteHeader.astro";
-import SiteFooter from "../components/SiteFooter.astro";
 import { SELF_HOST_REPO_URL } from "../data/features";
 
 interface Props {
-  frontmatter: {
-    title: string;
-    description?: string;
-  };
   headings: { depth: number; slug: string; text: string }[];
 }
 
-const { frontmatter, headings } = Astro.props;
+const { headings } = Astro.props;
 
 // Filter to h2 and h3 only for sidebar
-const tocItems = (headings ?? []).filter((h) => h.depth === 2 || h.depth === 3);
+const tocItems = headings.filter((h) => h.depth === 2 || h.depth === 3);
 ---
 
-<BaseLayout
-  title={`${frontmatter.title} — Questory`}
-  description={frontmatter.description}
->
-  <SiteHeader />
-  <div class="docs-shell">
-    <!-- Sidebar TOC (desktop) -->
+<div class="docs-shell">
+  <!-- Sidebar TOC (desktop) -->
+  {tocItems.length > 0 && (
+    <aside class="docs-sidebar" aria-label="Table of contents">
+      <nav class="docs-toc">
+        <p class="docs-toc__title">On this page</p>
+        <ul class="docs-toc__list">
+          {tocItems.map((h) => (
+            <li
+              class:list={[
+                "docs-toc__item",
+                { "docs-toc__item--sub": h.depth === 3 },
+              ]}
+            >
+              <a href={`#${h.slug}`} class="docs-toc__link" data-toc-link>
+                {h.text}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </aside>
+  )}
+
+  <!-- Main content -->
+  <div class="docs-main">
+    <!-- Mobile TOC toggle -->
     {tocItems.length > 0 && (
-      <aside class="docs-sidebar" aria-label="Table of contents">
-        <nav class="docs-toc">
-          <p class="docs-toc__title">On this page</p>
+      <details class="docs-toc-mobile">
+        <summary class="docs-toc-mobile__trigger">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Table of Contents
+          <svg class="docs-toc-mobile__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </summary>
+        <nav class="docs-toc-mobile__nav">
           <ul class="docs-toc__list">
             {tocItems.map((h) => (
               <li
@@ -37,79 +58,33 @@ const tocItems = (headings ?? []).filter((h) => h.depth === 2 || h.depth === 3);
                   { "docs-toc__item--sub": h.depth === 3 },
                 ]}
               >
-                <a href={`#${h.slug}`} class="docs-toc__link" data-toc-link>
+                <a href={`#${h.slug}`} class="docs-toc__link">
                   {h.text}
                 </a>
               </li>
             ))}
           </ul>
         </nav>
-      </aside>
+      </details>
     )}
 
-    <!-- Main content -->
-    <div class="docs-main">
+    <article class="docs-content mt-8">
+      <slot />
+    </article>
+    <p class="mt-12 border-t border-[var(--line)] pt-6 text-sm text-[var(--muted)]">
+      Canonical source:
       <a
-        href="/"
-        class="font-mono text-[11px] uppercase tracking-[0.15em] text-[var(--muted)] transition hover:text-[var(--accent)]"
+        href={SELF_HOST_REPO_URL}
+        class="text-[var(--accent)] hover:underline"
+        target="_blank"
+        rel="noopener noreferrer"
       >
-        ← Home
+        docs/self-hosting.md
       </a>
-
-      <!-- Mobile TOC toggle -->
-      {tocItems.length > 0 && (
-        <details class="docs-toc-mobile">
-          <summary class="docs-toc-mobile__trigger">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            Table of Contents
-            <svg class="docs-toc-mobile__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </summary>
-          <nav class="docs-toc-mobile__nav">
-            <ul class="docs-toc__list">
-              {tocItems.map((h) => (
-                <li
-                  class:list={[
-                    "docs-toc__item",
-                    { "docs-toc__item--sub": h.depth === 3 },
-                  ]}
-                >
-                  <a href={`#${h.slug}`} class="docs-toc__link">
-                    {h.text}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </details>
-      )}
-
-      <article class="docs-content mt-8">
-        <h1>{frontmatter.title}</h1>
-        {frontmatter.description ? (
-          <p class="!text-lg !text-[var(--muted)]">{frontmatter.description}</p>
-        ) : null}
-        <slot />
-      </article>
-      <p class="mt-12 border-t border-[var(--line)] pt-6 text-sm text-[var(--muted)]">
-        Canonical source:
-        <a
-          href={SELF_HOST_REPO_URL}
-          class="text-[var(--accent)] hover:underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          docs/self-hosting.md
-        </a>
-        in the Questory repository.
-      </p>
-    </div>
+      in the Questory repository.
+    </p>
   </div>
-  <SiteFooter />
-</BaseLayout>
+</div>
 
 <script>
   // Badge Service-column cells (API / Web / Enterprise) in env tables
