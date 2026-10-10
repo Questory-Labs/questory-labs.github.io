@@ -1,10 +1,18 @@
 ---
 import { GITHUB_URL, LICENSE_URL, SELF_HOST_PATH } from "../data/features";
+import { SCREENSHOTS_PATH } from "../data/site";
+
+type Props = {
+  /** Giant outlined wordmark that rises in as the footer scrolls into view. */
+  wordmark?: boolean;
+};
+
+const { wordmark = false } = Astro.props;
 ---
 
-<footer class="border-t border-[var(--line)]">
+<footer class="qs-footer overflow-hidden border-t border-[var(--line)]">
   <div
-    class="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between"
+    class="mx-auto flex max-w-[1240px] flex-col gap-5 px-4 py-9 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10"
   >
     <p>
       Required Notice: Copyright Questory Labs (<a
@@ -12,24 +20,25 @@ import { GITHUB_URL, LICENSE_URL, SELF_HOST_PATH } from "../data/features";
         class="text-[var(--accent)] hover:underline"
         target="_blank"
         rel="noopener noreferrer">Questory-Labs/Questory</a
-      >)
+      >) · PolyForm Noncommercial 1.0.0
     </p>
-    <nav class="flex flex-wrap gap-4">
-      <a
-        href={GITHUB_URL}
-        class="transition hover:text-[var(--ink)]"
-        target="_blank"
-        rel="noopener noreferrer">GitHub</a
-      >
-      <a href={SELF_HOST_PATH} class="transition hover:text-[var(--ink)]"
-        >Self-hosting</a
-      >
-      <a
-        href={LICENSE_URL}
-        class="transition hover:text-[var(--ink)]"
-        target="_blank"
-        rel="noopener noreferrer">License</a
-      >
+    <nav class="flex flex-wrap gap-6" aria-label="Footer">
+      <a href={SCREENSHOTS_PATH} class="qs-link">Screenshots</a>
+      <a href={SELF_HOST_PATH} class="qs-link">Self-hosting</a>
+      <a href={LICENSE_URL} class="qs-link" target="_blank" rel="noopener noreferrer">License</a>
+      <a href={GITHUB_URL} class="qs-link" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
   </div>
+  {
+    wordmark && (
+      <p
+        aria-hidden="true"
+        class="qs-footer-mark font-display -mb-[0.16em] mt-2 overflow-hidden whitespace-nowrap text-center text-[clamp(80px,19vw,290px)] font-extrabold leading-none tracking-[-0.05em]"
+      >
+        {Array.from("Questory").map((char) => (
+          <span class="qs-char qs-ghost">{char}</span>
+        ))}
+      </p>
+    )
+  }
 </footer>
