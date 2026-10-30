@@ -19,24 +19,23 @@ const {
 ---
 
 <!doctype html>
-<html lang="en" class="landing-active">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#101012" />
+    <meta name="theme-color" content="#09090a" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <SeoHead title={title} description={description} image={image} noindex={noindex} />
     <title>{title}</title>
+    <script is:inline>document.documentElement.classList.add("js");</script>
   </head>
   <body>
-    <div class="qs-cdot" aria-hidden="true"></div>
-    <div class="qs-cring" aria-hidden="true"><span class="qs-cring-label">View</span></div>
     <div class="overflow-x-clip">
       <slot />
     </div>

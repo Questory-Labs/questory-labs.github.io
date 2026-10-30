@@ -33,6 +33,29 @@ export const SELF_HOST_URL = SELF_HOST_REPO_URL;
 export const LICENSE_URL =
   "https://github.com/Questory-Labs/Questory/blob/main/LICENSE";
 
+export const RAW_REPO_URL =
+  "https://raw.githubusercontent.com/Questory-Labs/Questory/main/";
+
+export const worksWith = [
+  "Steam",
+  "Epic",
+  "GOG",
+  "ListenBrainz",
+  "multi-scrobbler",
+  "Last.fm",
+  "Spotify",
+  "Trakt",
+  "Letterboxd",
+  "TMDB",
+  "Plex",
+  "Jellyfin",
+  "AniList",
+  "MyAnimeList",
+  "Kitsu",
+  "Bangumi",
+  "Shikimori",
+];
+
 export const gameFeatures: Feature[] = [
   {
     title: "Dashboard",
