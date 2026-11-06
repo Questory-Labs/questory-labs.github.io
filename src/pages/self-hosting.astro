@@ -74,13 +74,14 @@ const envVars = [
   { key: "STEAM_API_KEY", note: "required", html: 'Your Steam Web API key from <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener noreferrer">steamcommunity.com/dev/apikey</a>.' },
   { key: "WEB_ORIGIN · NEXT_PUBLIC_API_URL", note: "if not localhost", html: "The browser origin of the app and the URL browsers use to reach the API." },
   { key: "STEAM_REALM · STEAM_RETURN_URL", note: "if not localhost", html: "Both use the API origin, and the realm must be a prefix of the return URL." },
+  { key: "ADMIN_EMAILS", note: "recommended", html: "Comma-separated emails granted admin. The first user is not admin unless listed here." },
   { key: "NEXT_PUBLIC_ENABLE_*", note: "optional", html: "<code>MUSIC</code>, <code>WATCH</code> and <code>READ</code> until saved in Admin → Settings. Compose maps these to <code>FEATURE_*</code>." },
 ];
 
 const checks = [
   ["SESSION_SECRET", "Generate with openssl rand -hex 32; the template placeholder is not rejected at boot"],
   ["STEAM_API_KEY", "Your Steam Web API key"],
-  ["ADMIN_EMAILS", "Forward it with a compose override, or nobody becomes admin and signup stays open"],
+  ["ADMIN_EMAILS", "Set it before first signup, or nobody becomes admin and signup stays open"],
   ["CRON_SECRET", "For /v1/internal/cron/* HTTP callers; replace the template placeholder, or remove it if unused"],
   ["Music & watch tokens", "Mint per-user API keys in Settings, not env vars"],
   ["TRAKT_CLIENT_ID / TRAKT_CLIENT_SECRET", "Required for Trakt OAuth in the watch module"],
@@ -91,7 +92,7 @@ const checks = [
 
 const findHeading = (prefix: string) => headings.find((h) => h.depth <= 3 && h.text.startsWith(prefix));
 const deeper = [
-  { prefix: "How Compose reads", title: "Compose & .env", sub: "What is forwarded, and the override file" },
+  { prefix: "How Compose reads", title: "Compose & .env", sub: "What reaches the API, and the override file" },
   { prefix: "Lock down Postgres", title: "Lock down Postgres", sub: "Published ports and the default password" },
   { prefix: "Optional data keys", title: "Optional data keys", sub: "IsThereAnyDeal, IGDB, MusicBrainz" },
   { prefix: "Reverse proxy", title: "Reverse proxy", sub: "Same-origin setup, cookies, Caddy" },
@@ -301,7 +302,7 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
             <code class="code-inline">NEXT_PUBLIC_API_URL</code> is read when the web container starts (written into <code class="code-inline">/runtime-env.js</code>), so Hub-pulled images honour the compose environment without a rebuild.
           </p>
           <ol class="mb-0 mt-5 flex max-w-[680px] list-decimal flex-col gap-2 pl-5 text-[var(--muted-strong)]">
-            <li>Forward <code class="code-inline">ADMIN_EMAILS</code> with a compose override (see <a href="#env" class="text-[var(--ink)] underline underline-offset-4">below</a>), then register with that email.</li>
+            <li>Set <code class="code-inline">ADMIN_EMAILS</code> in <code class="code-inline">.env</code>, then register with that email.</li>
             <li>Link Steam in Settings → Connections.</li>
             <li>In Admin → Settings, turn on Music, Watch or Read, and close signup if the instance is private.</li>
           </ol>
@@ -322,18 +323,6 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
                 </div>
               ))
             }
-          </div>
-          <div class="q-card mt-4 p-5">
-            <p class="label-mono m-0">Not forwarded by Compose</p>
-            <p class="mb-0 mt-3 text-sm text-[var(--muted-strong)]">
-              <code class="code-inline">ADMIN_EMAILS</code>, <code class="code-inline">TRUST_PROXY</code>, the MyAnimeList, Shikimori and Bangumi OAuth variables and a few others never reach the container from <code class="code-inline">.env</code>. Add them in a <code class="code-inline">docker-compose.override.yml</code>, using <code class="code-inline">api-lite</code> on lite and <code class="code-inline">api</code> on full and production:
-            </p>
-            <pre class="q-term q-code mb-0 mt-3 overflow-x-auto px-5 py-4 text-[13px] leading-[1.9]">{`services:
-  api-lite:
-    environment:
-      ADMIN_EMAILS: \${ADMIN_EMAILS:-}
-      TRUST_PROXY: \${TRUST_PROXY:-}`}</pre>
-            {findHeading("How Compose reads") && <a href={`#${findHeading("How Compose reads")!.slug}`} class="mt-3 inline-flex text-sm text-[var(--ink)] underline underline-offset-4">Full list in the guide ↓</a>}
           </div>
         </section>
 
