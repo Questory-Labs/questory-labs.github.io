@@ -11,6 +11,7 @@ const outputRoot = path.join(root, "public", "screenshots");
 const VARIANTS = [
   { name: "card", maxWidth: 800, quality: 82 },
   { name: "full", maxWidth: 1440, quality: 85 },
+  { name: "cine", maxWidth: 2200, quality: 82 },
 ];
 
 async function isUpToDate(sourcePath, outputPath) {

@@ -192,16 +192,17 @@ export const screenshotGroups: ScreenshotGroup[] = [
     eyebrow: "Games",
     shots: [
       { id: "steam-dashboard", title: "Dashboard", group: "Games" },
+      { id: "steam-library", title: "Library", group: "Games" },
+      { id: "steam-game-detail", title: "Game detail", group: "Games" },
       { id: "steam-wishlist", title: "Wishlist", group: "Games" },
       { id: "steam-cost", title: "Cost analytics", group: "Games" },
-      { id: "steam-family", title: "Family insights", group: "Games" },
-      {
-        id: "steam-family-lic-conflicts",
-        title: "Family license conflicts",
-        group: "Games",
-      },
+      { id: "steam-collections", title: "Collections", group: "Games" },
+      { id: "steam-sessions", title: "Sessions", group: "Games" },
       { id: "steam-multiplayer", title: "Multiplayer planner", group: "Games" },
+      { id: "steam-friends", title: "Friends", group: "Games" },
+      { id: "steam-family", title: "Family insights", group: "Games" },
       { id: "steam-trending", title: "Trending", group: "Games" },
+      { id: "steam-rewind", title: "Games Rewind", group: "Games" },
     ],
   },
   {
@@ -210,27 +211,12 @@ export const screenshotGroups: ScreenshotGroup[] = [
     optional: true,
     shots: [
       { id: "music-dashboard", title: "Dashboard", group: "Music", optional: true },
-      { id: "music-listening", title: "Listening pulse", group: "Music", optional: true },
+      { id: "music-listening", title: "Listening", group: "Music", optional: true },
       { id: "music-top-charts", title: "Top charts", group: "Music", optional: true },
-      {
-        id: "music-album-insights",
-        title: "Album insights",
-        group: "Music",
-        optional: true,
-      },
-      {
-        id: "music-artist-insights",
-        title: "Artist insights",
-        group: "Music",
-        optional: true,
-      },
-      {
-        id: "music-track-insights",
-        title: "Track insights",
-        group: "Music",
-        optional: true,
-      },
-      { id: "music-sources", title: "Sources", group: "Music", optional: true },
+      { id: "music-artist-insights", title: "Artist insights", group: "Music", optional: true },
+      { id: "music-album-insights", title: "Album insights", group: "Music", optional: true },
+      { id: "music-track-insights", title: "Track insights", group: "Music", optional: true },
+      { id: "music-rewind", title: "Music Rewind", group: "Music", optional: true },
     ],
   },
   {
@@ -240,7 +226,8 @@ export const screenshotGroups: ScreenshotGroup[] = [
     shots: [
       { id: "watch-dashboard", title: "Dashboard", group: "Watch", optional: true },
       { id: "watch-history", title: "History", group: "Watch", optional: true },
-      { id: "watch-sources", title: "Sources", group: "Watch", optional: true },
+      { id: "watch-title", title: "Title detail", group: "Watch", optional: true },
+      { id: "watch-rewind", title: "Watch Rewind", group: "Watch", optional: true },
     ],
   },
   {
@@ -249,6 +236,10 @@ export const screenshotGroups: ScreenshotGroup[] = [
     optional: true,
     shots: [
       { id: "read-dashboard", title: "Dashboard", group: "Read", optional: true },
+      { id: "read-library", title: "Library", group: "Read", optional: true },
+      { id: "read-history", title: "History", group: "Read", optional: true },
+      { id: "read-title", title: "Title detail", group: "Read", optional: true },
+      { id: "read-rewind", title: "Read Rewind", group: "Read", optional: true },
     ],
   },
   {
@@ -256,53 +247,15 @@ export const screenshotGroups: ScreenshotGroup[] = [
     eyebrow: "QEngine",
     optional: true,
     shots: [
-      {
-        id: "qengine-recommendations",
-        title: "Recommendations",
-        group: "QEngine",
-        optional: true,
-      },
-      {
-        id: "qengine-taste-fingerprint",
-        title: "Taste fingerprint",
-        group: "QEngine",
-        optional: true,
-      },
+      { id: "qengine-recommendations", title: "Recommendations", group: "QEngine", optional: true },
+      { id: "qengine-goals", title: "Goals", group: "QEngine", optional: true },
     ],
   },
   {
-    id: "admin",
-    eyebrow: "Admin",
-    optional: true,
+    id: "rewind",
+    eyebrow: "Rewind",
     shots: [
-      { id: "admin-dashboard", title: "Dashboard", group: "Admin", optional: true },
-      { id: "admin-users", title: "Users", group: "Admin", optional: true },
-      { id: "admin-cron", title: "Cron jobs", group: "Admin", optional: true },
-      {
-        id: "admin-enrichment",
-        title: "Enrichment",
-        group: "Admin",
-        optional: true,
-      },
-      { id: "admin-scrapers", title: "Scrapers", group: "Admin", optional: true },
-      {
-        id: "admin-qengine-traces",
-        title: "QEngine traces",
-        group: "Admin",
-        optional: true,
-      },
-      {
-        id: "admin-qengine-traces-list",
-        title: "QEngine traces list",
-        group: "Admin",
-        optional: true,
-      },
-      {
-        id: "admin-qengine-tokenomics",
-        title: "QEngine tokenomics",
-        group: "Admin",
-        optional: true,
-      },
+      { id: "unified-rewind", title: "Your Rewind", group: "Rewind" },
     ],
   },
 ];

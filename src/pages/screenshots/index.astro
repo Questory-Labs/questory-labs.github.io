@@ -14,7 +14,7 @@ const tints: Record<string, string> = {
   watch: "var(--watch)",
   read: "var(--read)",
   qengine: "var(--warm)",
-  admin: "var(--muted-strong)",
+  rewind: "var(--ink)",
 };
 
 const total = screenshotGroups.reduce((n, g) => n + g.shots.length, 0);
@@ -22,7 +22,7 @@ const total = screenshotGroups.reduce((n, g) => n + g.shots.length, 0);
 
 <BaseLayout
   title="Screenshots — Questory"
-  description="Browse Questory screenshots across games, music, watch, read, QEngine, and admin."
+  description="Browse Questory screenshots across games, music, watch, read, QEngine, and Rewind."
 >
   <SiteHeader />
   <main class="mx-auto max-w-[1240px] px-4 pb-10">
@@ -30,11 +30,11 @@ const total = screenshotGroups.reduce((n, g) => n + g.shots.length, 0);
       <p class="q-eyebrow q-in" style="--i: 1">Screenshots — {total} captures</p>
       <h1 id="sh" class="q-h1 q-in" style="--i: 2">See it before <em class="font-serif text-[var(--muted-strong)]">you host it.</em></h1>
       <p class="q-lede q-in max-w-[560px]" style="--i: 3">
-        The Questory UI across core Steam features and the optional music, watch, read, QEngine, and admin modules. Open any shot full size.
+        The Questory UI across core Steam features and the optional music, watch, read and QEngine modules, captured from the built-in demo account with sample data. Open any shot full size.
       </p>
     </section>
 
-    <div class="sticky top-[84px] z-30 -mx-4 bg-[linear-gradient(var(--bg-0)_70%,transparent)] px-4 pb-4 pt-2">
+    <div class="sticky top-[84px] z-30 -mx-4 px-4 pb-4 pt-2 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:bg-[rgba(12,12,14,0.85)] before:backdrop-blur-md before:content-[''] before:[mask-image:linear-gradient(transparent,#000_16px,#000_70%,transparent)]">
       <div role="group" aria-label="Filter screenshots" class="flex gap-2 overflow-x-auto [scrollbar-width:none]">
         <button type="button" class="q-pill-btn" data-filter="all" aria-pressed="true">All <span class="q-count">{total}</span></button>
         {

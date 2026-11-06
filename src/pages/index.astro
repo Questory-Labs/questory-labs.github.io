@@ -3,7 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import { gameFeatures, mediaGroups, worksWith, GITHUB_URL, RAW_REPO_URL, SELF_HOST_PATH } from "../data/features";
-import { SCREENSHOTS_PATH } from "../data/site";
+import { DEMO_URL, FILM_PATH, SCREENSHOTS_PATH } from "../data/site";
 
 const full = (id: string) => `/screenshots/full/${id}.webp`;
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -54,8 +54,7 @@ const steps = [
   <SiteHeader />
   <main id="top" class="-mt-[72px]">
     <section aria-labelledby="hero" class="relative flex min-h-[min(860px,100vh)] flex-col items-center justify-end overflow-hidden px-4 pb-[72px] pt-40 text-center">
-      <canvas data-hero width="1050" height="672" aria-hidden="true" class="absolute left-1/2 top-10 h-auto w-[min(1050px,120vw)] -translate-x-1/2"></canvas>
-      <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 bottom-0 h-[420px] bg-[linear-gradient(0deg,var(--bg-0)_30%,transparent)]"></div>
+      <canvas data-hero width="1050" height="672" aria-hidden="true" class="absolute left-1/2 top-10 h-auto w-[min(1050px,120vw)] -translate-x-1/2 [mask-image:linear-gradient(180deg,#000_60%,transparent_100%)]"></canvas>
       <p class="pill q-in relative m-0" style="--i: 1"><span class="dot q-live text-[var(--ok)]" aria-hidden="true"></span>Self-hosted · source-available · Steam-first</p>
       <h1 id="hero" class="q-in relative mb-0 mt-[22px] max-w-[900px] text-[clamp(44px,7vw,96px)] font-normal leading-[0.98] tracking-[-0.05em] [perspective:600px]" style="--i: 2">
         <span class="sr-only">Every hour you played, heard, watched or read — remembered.</span>
@@ -66,7 +65,8 @@ const steps = [
       </p>
       <div class="q-in relative mt-[34px] flex flex-wrap justify-center gap-3" style="--i: 4">
         <a href={SELF_HOST_PATH} class="q-btn q-btn-primary">Get Questory</a>
-        <a href={SCREENSHOTS_PATH} class="q-btn q-btn-ghost">See it running</a>
+        <a href={FILM_PATH} class="q-btn q-btn-warm">Watch the film</a>
+        <a href={DEMO_URL} target="_blank" rel="noopener noreferrer" class="q-btn q-btn-accent">Demo</a>
       </div>
       <p class="font-serif q-in relative mb-0 mt-14 text-lg text-[var(--faint)]" style="--i: 5">play. listen. watch. read.</p>
       <span aria-hidden="true" class="q-cue relative mt-3.5 h-7 w-px bg-[linear-gradient(var(--muted-strong),transparent)]"></span>
@@ -102,7 +102,7 @@ const steps = [
       </div>
       {
         modules.map((mod, i) => (
-          <div role="tabpanel" id={`panel-${mod.key}`} aria-labelledby={`tab-${mod.key}`} hidden={i !== 0} class="mt-[22px] flex flex-wrap items-stretch gap-[22px]">
+          <div role="tabpanel" id={`panel-${mod.key}`} aria-labelledby={`tab-${mod.key}`} hidden={i !== 0} class="mt-[22px] flex flex-wrap items-start gap-[22px]">
             <div class="q-g q-frame min-w-0 flex-[1.7_1_560px] overflow-hidden p-2.5">
               <div class="overflow-hidden rounded-[20px] border border-[rgba(255,255,255,0.06)]">
                 <img class="q-shot block h-auto w-full" src={full(mod.shot)} alt={`${mod.title} dashboard`} width="1440" height="900" loading={i === 0 ? "eager" : "lazy"} />
@@ -312,12 +312,12 @@ const steps = [
     const still = reducedMotion();
 
     if (!still) {
-      hero.style.pointerEvents = "auto";
-      hero.addEventListener("pointermove", (ev) => {
+      const heroSection = hero.parentElement ?? hero;
+      heroSection.addEventListener("pointermove", (ev) => {
         const r = hero.getBoundingClientRect();
         mouse = { x: ((ev.clientX - r.left) * hero.width) / r.width, y: ((ev.clientY - r.top) * hero.height) / r.height };
       });
-      hero.addEventListener("pointerleave", () => {
+      heroSection.addEventListener("pointerleave", () => {
         mouse = { x: -999, y: -999 };
       });
     }

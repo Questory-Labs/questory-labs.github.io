@@ -20,7 +20,7 @@ const modeTable = [
   { mode: "local", stack: "SQLite, no Redis", best: "Development on your machine", profile: "—" },
   { mode: "selfhosted", stack: "SQLite volume, inline sync", best: "Home server / small household", profile: "selfhosted" },
   { mode: "selfhosted-full", stack: "Postgres + Redis + queues", best: "Always-on self-host with more users", profile: "selfhosted-full" },
-  { mode: "production", stack: "Same as full + public HTTPS checks", best: "Hardened public HTTPS / multi-user instance", profile: "production" },
+  { mode: "production", stack: "Same as full + boot checks that reject localhost URLs", best: "Public multi-user instance behind HTTPS", profile: "production" },
 ];
 
 type Part = string | { v: "profile" | "env" | "pnpm" };
@@ -41,9 +41,9 @@ const sets = [
       cmd("git clone https://github.com/Questory-Labs/Questory.git"),
       cmd("cd Questory"),
       cmd("cp ", ENV, " .env"),
-      note("# edit SESSION_SECRET, STEAM_API_KEY, URLs, optional ALLOWED_STEAM_IDS"),
+      note("# set SESSION_SECRET (openssl rand -hex 32), STEAM_API_KEY, URLs, optional ALLOWED_STEAM_IDS"),
       cmd("docker compose --profile ", PROFILE, " --env-file .env up -d --build"),
-      note("# or, with Node + pnpm: pnpm docker:<mode> -- --build"),
+      note("# or, with Node + pnpm: pnpm docker:<mode> --build"),
     ],
   },
   {
@@ -56,7 +56,7 @@ const sets = [
       cmd(`curl -LO ${RAW_REPO_URL}docker-compose.yml`),
       cmd(`curl -LO ${RAW_REPO_URL}`, ENV),
       cmd("cp ", ENV, " .env"),
-      note("# edit SESSION_SECRET, STEAM_API_KEY, URLs"),
+      note("# set SESSION_SECRET (openssl rand -hex 32), STEAM_API_KEY, URLs"),
       cmd("docker compose --profile ", PROFILE, " --env-file .env up -d"),
     ],
   },
@@ -69,28 +69,33 @@ const channels = [
 ];
 
 const envVars = [
-  { key: "APP_MODE", note: "required", html: "Boot mode: <code>local</code>, <code>selfhosted</code>, <code>selfhosted-full</code> or <code>production</code>." },
-  { key: "SESSION_SECRET", note: "required", html: "Long random string, at least 16 characters. The API rejects weak placeholders outside local mode." },
+  { key: "APP_MODE", note: "set by template", html: "Boot mode: <code>selfhosted</code>, <code>selfhosted-full</code> or <code>production</code>. Use the template that matches your profile." },
+  { key: "SESSION_SECRET", note: "required", html: "Generate with <code>openssl rand -hex 32</code>. The API rejects empty, short and <code>change-me*</code> values outside local mode, but not the template's <code>replace-with-a-long-random-string</code>." },
   { key: "STEAM_API_KEY", note: "required", html: 'Your Steam Web API key from <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener noreferrer">steamcommunity.com/dev/apikey</a>.' },
-  { key: "DATABASE_PROVIDER", note: "per mode", html: "<code>sqlite</code> for lite, <code>postgresql</code> for full and production. Pairs with <code>DATABASE_URL</code>." },
-  { key: "REDIS_URL", note: "optional", html: "Shares cache and locks across processes and enables BullMQ sync queues. Leave empty for in-memory." },
+  { key: "WEB_ORIGIN · NEXT_PUBLIC_API_URL", note: "if not localhost", html: "The browser origin of the app and the URL browsers use to reach the API." },
+  { key: "STEAM_REALM · STEAM_RETURN_URL", note: "if not localhost", html: "Both use the API origin, and the realm must be a prefix of the return URL." },
+  { key: "NEXT_PUBLIC_ENABLE_*", note: "optional", html: "<code>MUSIC</code>, <code>WATCH</code> and <code>READ</code> until saved in Admin → Settings. Compose maps these to <code>FEATURE_*</code>." },
 ];
 
 const checks = [
-  ["SESSION_SECRET", "Long random string; the API rejects weak placeholders in non-local modes"],
+  ["SESSION_SECRET", "Generate with openssl rand -hex 32; the template placeholder is not rejected at boot"],
   ["STEAM_API_KEY", "Your Steam Web API key"],
-  ["CRON_SECRET", "For /v1/internal/cron/* HTTP callers; optional if you only use in-process cron"],
+  ["ADMIN_EMAILS", "Forward it with a compose override, or nobody becomes admin and signup stays open"],
+  ["CRON_SECRET", "For /v1/internal/cron/* HTTP callers; replace the template placeholder, or remove it if unused"],
   ["Music & watch tokens", "Mint per-user API keys in Settings, not env vars"],
   ["TRAKT_CLIENT_ID / TRAKT_CLIENT_SECRET", "Required for Trakt OAuth in the watch module"],
   ["TMDB_API_KEY", "Watch metadata enrichment; keep TMDB attribution in the UI"],
-  ["Postgres password", "Change the compose default on any internet-facing host"],
+  ["Postgres & Redis", "On any internet-facing host, change the default password and stop publishing 5432 / 6379"],
   [".env stays private", "Never commit .env"],
 ];
 
 const findHeading = (prefix: string) => headings.find((h) => h.depth <= 3 && h.text.startsWith(prefix));
 const deeper = [
-  { prefix: "Reverse proxy", title: "Reverse proxy", sub: "Same-origin setup and cookies" },
-  { prefix: "QEngine security", title: "QEngine security", sub: "Internal network, secrets, Caddy" },
+  { prefix: "How Compose reads", title: "Compose & .env", sub: "What is forwarded, and the override file" },
+  { prefix: "Lock down Postgres", title: "Lock down Postgres", sub: "Published ports and the default password" },
+  { prefix: "Optional data keys", title: "Optional data keys", sub: "IsThereAnyDeal, IGDB, MusicBrainz" },
+  { prefix: "Reverse proxy", title: "Reverse proxy", sub: "Same-origin setup, cookies, Caddy" },
+  { prefix: "QEngine security", title: "QEngine security", sub: "Internal network and secrets" },
   { prefix: "Music analytics", title: "Music", sub: "Last.fm, multi-scrobbler, imports" },
   { prefix: "Watch analytics", title: "Watch", sub: "Trakt, AniList, webhooks" },
   { prefix: "qMonitor device login", title: "qMonitor", sub: "Device login and /api/health probe" },
@@ -99,8 +104,8 @@ const deeper = [
   { prefix: "Auth (email", title: "Auth", sub: "Email + password, ADMIN_EMAILS" },
   { prefix: "Steam ID allowlist", title: "Steam ID allowlist", sub: "Who may link an account" },
   { prefix: "Feature flags", title: "Feature flags", sub: "Admin settings and /v1/status" },
-  { prefix: "Backups", title: "Backups", sub: "SQLite and PostgreSQL" },
-  { prefix: "Daily sync cron", title: "Daily sync cron", sub: "In-process or external" },
+  { prefix: "Backups", title: "Backups", sub: "SQLite and Postgres commands" },
+  { prefix: "Daily sync cron", title: "Daily sync cron", sub: "Every job, schedule and HTTP route" },
 ]
   .map((item) => ({ ...item, slug: findHeading(item.prefix)?.slug }))
   .filter((item): item is typeof item & { slug: string } => Boolean(item.slug));
@@ -162,7 +167,8 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
         <section id="prerequisites" aria-labelledby="pre-h" class="scroll-mt-24">
           <h2 id="pre-h" class={h2}>Prerequisites</h2>
           <ul class="m-0 mt-5 grid list-none gap-3 p-0 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
-            <li class="q-card p-5"><p class="label-mono m-0">Runtime</p><p class="mb-0 mt-2">Docker with Compose (<code class="code-inline">docker compose</code>)</p></li>
+            <li class="q-card p-5"><p class="label-mono m-0">Runtime</p><p class="mb-0 mt-2">Docker with Compose 2.20+ (<code class="code-inline">docker compose</code>)</p></li>
+            <li class="q-card p-5"><p class="label-mono m-0">Platform</p><p class="mb-0 mt-2">Published images are <code class="code-inline">linux/amd64</code> only. ARM hosts build from source.</p></li>
             <li class="q-card p-5"><p class="label-mono m-0">Steam</p><p class="mb-0 mt-2">A Steam Web API key</p></li>
             <li class="q-card p-5"><p class="label-mono m-0">Secret</p><p class="mb-0 mt-2"><code class="code-inline">SESSION_SECRET</code> of 16+ characters</p></li>
             <li class="q-card p-5"><p class="label-mono m-0">From source</p><p class="mb-0 mt-2">Git; Node + pnpm only for the <code class="code-inline">pnpm docker:*</code> shortcuts</p></li>
@@ -171,7 +177,7 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
 
         <section id="deployment-modes" aria-labelledby="modes-h" class="scroll-mt-24">
           <h2 id="modes-h" class={h2}>Deployment modes</h2>
-          <p class={lede}>Set <code class="code-inline">APP_MODE</code> and pick the matching Compose profile and env template. The API always caches — in memory by default, shared through Redis when <code class="code-inline">REDIS_URL</code> is set.</p>
+          <p class={lede}>Set <code class="code-inline">APP_MODE</code> and pick the matching Compose profile and env template. The profile decides the stack, and the API always caches: in memory on lite, shared through Redis on full and production. <code class="code-inline">production</code> does not enforce TLS, so put an HTTPS reverse proxy in front.</p>
           <div class="q-g mt-6 overflow-x-auto">
             <table class="w-full min-w-[560px] border-collapse text-left text-sm">
               <thead>
@@ -200,7 +206,7 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
 
         <section id="quick-start" aria-labelledby="qs-h" class="scroll-mt-24">
           <h2 id="qs-h" class={h2}>Quick start</h2>
-          <p class={lede}>Build from the repo with <code class="code-inline">--build</code>. Prebuilt images are optional. Every command below follows the stack you pick.</p>
+          <p class={lede}>Build from the repo with <code class="code-inline">--build</code>, or leave it off to pull published images. Every command below follows the stack you pick.</p>
           <div class="mt-6 flex flex-wrap gap-3">
             <div class="q-seg" role="group" aria-label="Stack">
               {modes.map((m) => <button type="button" data-mode={m.id} data-profile={m.profile} data-env={m.env} data-pnpm={m.pnpm} aria-pressed={m.id === lite.id ? "true" : "false"}>{m.label}</button>)}
@@ -236,7 +242,7 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
             ))
           }
           <p class="mb-0 mt-4 text-sm text-[var(--muted)]">
-            pnpm shortcut for your pick: <code class="code-inline">pnpm <span data-var="pnpm">{lite.pnpm}</span> -- --build</code>
+            pnpm shortcut for your pick: <code class="code-inline">pnpm <span data-var="pnpm">{lite.pnpm}</span> --build</code>
           </p>
         </section>
 
@@ -279,7 +285,7 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
             </table>
           </div>
           <p class="mb-0 mt-4 max-w-[680px] text-sm text-[var(--muted)]">
-            <code class="code-inline">:latest</code> tracks stable. Compose defaults to <code class="code-inline">PULL_POLICY=always</code>, so rolling tags update on <code class="code-inline">docker compose up</code>; set <code class="code-inline">PULL_POLICY=missing</code> when you pin an exact version. QEngine has no public image — see <a href="#enterprise" class="text-[var(--ink)] underline underline-offset-4">Enterprise</a>.
+            <code class="code-inline">:latest</code> tracks stable. Compose defaults to <code class="code-inline">PULL_POLICY=always</code>, so rolling tags update on <code class="code-inline">docker compose up</code>; set <code class="code-inline">PULL_POLICY=missing</code> when you pin an exact version. Images are <code class="code-inline">linux/amd64</code> only and mirrored to <code class="code-inline">ghcr.io/questory-labs</code>. The <code class="code-inline">rc</code> tag only exists once a release candidate has been published, and none has been so far. For QEngine, see <a href="#enterprise" class="text-[var(--ink)] underline underline-offset-4">Enterprise</a>.
           </p>
         </section>
 
@@ -294,11 +300,16 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
           <p class="mb-0 mt-4 max-w-[680px] text-sm text-[var(--muted)]">
             <code class="code-inline">NEXT_PUBLIC_API_URL</code> is read when the web container starts (written into <code class="code-inline">/runtime-env.js</code>), so Hub-pulled images honour the compose environment without a rebuild.
           </p>
+          <ol class="mb-0 mt-5 flex max-w-[680px] list-decimal flex-col gap-2 pl-5 text-[var(--muted-strong)]">
+            <li>Forward <code class="code-inline">ADMIN_EMAILS</code> with a compose override (see <a href="#env" class="text-[var(--ink)] underline underline-offset-4">below</a>), then register with that email.</li>
+            <li>Link Steam in Settings → Connections.</li>
+            <li>In Admin → Settings, turn on Music, Watch or Read, and close signup if the instance is private.</li>
+          </ol>
         </section>
 
         <section id="env" aria-labelledby="env-h" class="scroll-mt-24">
           <h2 id="env-h" class={h2}>The .env that matters</h2>
-          <p class={lede}>Five variables decide the stack. The templates carry the rest, including <code class="code-inline">WEB_ORIGIN</code>, Steam OpenID URLs and the optional modules.</p>
+          <p class={lede}>The Compose profile decides the stack: it hardcodes the database, Redis and sync settings, so changing those in <code class="code-inline">.env</code> has no effect. These are the values you do set.</p>
           <div class="mt-6 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
             {
               envVars.map((v) => (
@@ -311,6 +322,18 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
                 </div>
               ))
             }
+          </div>
+          <div class="q-card mt-4 p-5">
+            <p class="label-mono m-0">Not forwarded by Compose</p>
+            <p class="mb-0 mt-3 text-sm text-[var(--muted-strong)]">
+              <code class="code-inline">ADMIN_EMAILS</code>, <code class="code-inline">TRUST_PROXY</code>, the MyAnimeList, Shikimori and Bangumi OAuth variables and a few others never reach the container from <code class="code-inline">.env</code>. Add them in a <code class="code-inline">docker-compose.override.yml</code>, using <code class="code-inline">api-lite</code> on lite and <code class="code-inline">api</code> on full and production:
+            </p>
+            <pre class="q-term q-code mb-0 mt-3 overflow-x-auto px-5 py-4 text-[13px] leading-[1.9]">{`services:
+  api-lite:
+    environment:
+      ADMIN_EMAILS: \${ADMIN_EMAILS:-}
+      TRUST_PROXY: \${TRUST_PROXY:-}`}</pre>
+            {findHeading("How Compose reads") && <a href={`#${findHeading("How Compose reads")!.slug}`} class="mt-3 inline-flex text-sm text-[var(--ink)] underline underline-offset-4">Full list in the guide ↓</a>}
           </div>
         </section>
 
@@ -340,7 +363,7 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
 
         <section id="updating" aria-labelledby="up-h" class="scroll-mt-24">
           <h2 id="up-h" class={h2}>Updating</h2>
-          <p class={lede}>Back up your database first. Containers run <code class="code-inline">prisma db push</code> on start against the shared schema.</p>
+          <p class={lede}>Back up your database first. Containers run <code class="code-inline">prisma db push</code> on start against the shared schema. If a change would lose data, the API refuses to start and logs why.</p>
           <div class="q-term mt-5 px-5 py-4">
             <div class="q-code text-[13px] leading-[1.9]">
               <div class="text-[var(--faint)]"># prebuilt: refresh the compose file — a new image with an old one is unsupported</div>
@@ -360,7 +383,7 @@ const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
             <h2 id="ent-h" class={h2}>QEngine <em class="font-serif text-[var(--warm-ink)]">stack</em></h2>
             <p class={lede}>
               Recommendations and the taste fingerprint run in a separate Rust service, switched on with <code class="code-inline">ENTERPRISE=true</code> via <code class="code-inline">docker-compose.enterprise.yml</code> and <code class="code-inline">.env.enterprise.example</code>.
-              Its images ship from the private repo only — binary-only, personal / noncommercial license.
+              The source is private; the image, <code class="code-inline">santoshpanna/questorylabs-qengine</code>, is published binary-only under a personal / noncommercial license.
             </p>
             <ul class="mb-0 mt-4 flex list-none flex-col gap-2 p-0 text-sm text-[var(--muted-strong)]">
               <li>Browser traffic goes through the API; QEngine stays on the internal Docker network.</li>
