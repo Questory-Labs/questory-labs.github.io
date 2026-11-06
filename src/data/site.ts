@@ -18,6 +18,8 @@ export const OG_IMAGE_WIDTH = 800;
 export const OG_IMAGE_HEIGHT = 800;
 
 export const SCREENSHOTS_PATH = "/screenshots/";
+export const FILM_PATH = "/film/";
+export const DEMO_URL = "https://app.questorylabs.com";
 
 export const README_REPO_URL =
   "https://github.com/Questory-Labs/Questory/blob/main/README.md";

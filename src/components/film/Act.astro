@@ -1,0 +1,66 @@
+---
+import { shotImage } from "../../lib/shots";
+import type { Act } from "../../data/film";
+
+type Props = { act: Act };
+const { act } = Astro.props;
+
+const pan = await shotImage(act.pan, "cine");
+const reel = await Promise.all(act.reel.map(async (frame) => ({ ...frame, image: await shotImage(frame.id, "full") })));
+---
+
+<section id={act.id} class="f-act" data-act data-scene={`${act.mark} · ${act.title}`} style={`--tint: ${act.tint}`} aria-labelledby={`${act.id}-title`}>
+  <div class="f-card" data-card>
+    <slot name="backdrop" />
+    <span class="f-sweep" data-sweep aria-hidden="true"></span>
+    <div class="f-card-inner" data-card-inner>
+      <p class="f-mark" data-card-mark>{act.mark}</p>
+      <h2 id={`${act.id}-title`} class="f-title">
+        <span class="sr-only">{act.title}</span>
+        <span class="f-title-main" data-card-title aria-hidden="true">
+          {act.title.split(" ").map((word) => (
+            <>
+              <span class="f-word">{[...word].map((char) => <span class="f-char" data-char>{char}</span>)}</span>{" "}
+            </>
+          ))}
+        </span>
+        <em class="f-accent" data-card-accent>{act.accent}</em>
+      </h2>
+      <p class="f-logline" data-card-logline>{act.logline}</p>
+    </div>
+  </div>
+
+  <div class="f-pan" data-pan>
+    <div class="f-pan-frame" data-pan-frame style={`--shot-ratio: ${pan.width} / ${pan.height}`} tabindex="0" role="group" aria-label={`${act.title}, scrollable screenshot`}>
+      <img data-pan-img src={pan.src} width={pan.width} height={pan.height} alt={act.panAlt} loading="lazy" decoding="async" />
+      <span class="f-sheen" data-sheen aria-hidden="true"></span>
+    </div>
+    <ol class="f-beats">
+      {act.beats.map((beat) => (
+        <li class="f-beat" data-beat>
+          <strong>{beat.title}</strong>
+          <span>{beat.body}</span>
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  <slot name="after-pan" />
+
+  {reel.length > 0 && (
+    <div class="f-reel" data-reel tabindex="0" role="group" aria-label={`More from ${act.title}`}>
+      <div class="f-reel-track" data-track>
+        <div class="f-reel-intro">
+          <p class="f-mark">Extended cut</p>
+          <p class="f-reel-heading">More from <em>{act.title.toLowerCase()}</em></p>
+        </div>
+        {reel.map((frame) => (
+          <figure class="f-frame" data-frame>
+            <img src={frame.image.src} width={frame.image.width} height={frame.image.height} alt={`${frame.title} view`} loading="lazy" decoding="async" />
+            <figcaption><strong>{frame.title}</strong><span>{frame.note}</span></figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
+  )}
+</section>

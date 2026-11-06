@@ -7,7 +7,7 @@ Questory is source-available under PolyForm Noncommercial 1.0.0. Personal and no
 ## Site
 
 - [Home](https://questory-labs.github.io/): Product overview, feature highlights, and links to GitHub and self-hosting
-- [Screenshots](https://questory-labs.github.io/screenshots/): UI captures across games, music, watch, read, QEngine, and admin
+- [Screenshots](https://questory-labs.github.io/screenshots/): UI captures across games, music, watch, read, QEngine, and Rewind
 - [Self-hosting guide](https://questory-labs.github.io/self-hosting/): Docker Compose profiles, environment templates, and optional modules
 
 ## Repository

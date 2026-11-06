@@ -1,0 +1,171 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import Act from "../components/film/Act.astro";
+import { acts, credits, finale, heroWall, twist } from "../data/film";
+import { GITHUB_URL, RAW_REPO_URL, SELF_HOST_PATH } from "../data/features";
+import { SCREENSHOTS_PATH } from "../data/site";
+import { shotImage } from "../lib/shots";
+import "../styles/film.css";
+
+const wall = await Promise.all(heroWall.map((row) => Promise.all(row.map((id) => shotImage(id, "card")))));
+
+const trailer = [
+  "You bought the wall of games on sale.",
+  "You swore you'd finish them.",
+  "The playlists. The shows. The chapters at 2 a.m.",
+  "All those hours went somewhere.",
+];
+
+const startCmd = "docker compose --profile selfhosted --env-file .env up -d";
+const steps = [
+  { t: "Grab the compose file and env template", lines: [`curl -LO ${RAW_REPO_URL}docker-compose.yml`, `curl -LO ${RAW_REPO_URL}.env.selfhosted.example`] },
+  { t: "Set your secrets", lines: ["cp .env.selfhosted.example .env"], note: "# SESSION_SECRET, STEAM_API_KEY" },
+  { t: "Start it", lines: [startCmd], note: "# web :3000 · api :4000" },
+];
+---
+
+<BaseLayout noindex>
+  <div class="f-ident" data-ident aria-hidden="true"><span>A Questory Labs picture</span></div>
+  <script is:inline>
+    try {
+      if (sessionStorage.getItem("q-ident") || location.hash) {
+        document.querySelector("[data-ident]").remove();
+      } else {
+        sessionStorage.setItem("q-ident", "1");
+        document.documentElement.classList.add("has-ident");
+      }
+    } catch {
+      document.documentElement.classList.add("has-ident");
+    }
+  </script>
+
+  <div class="f-fx" aria-hidden="true">
+    <div class="f-bar f-bar-top" data-bar></div>
+    <div class="f-bar f-bar-bottom" data-bar></div>
+    <div class="f-grain"></div>
+    <div class="f-vignette"></div>
+    <div class="f-flash" data-flash></div>
+    <div class="f-progress" data-progress></div>
+    <div class="f-hud"><span data-hud-scene>Title sequence</span><span data-hud-time>00:00:00:00</span></div>
+  </div>
+
+  <SiteHeader />
+
+  <main id="top" class="-mt-[72px]">
+    <section class="f-hero" data-hero data-scene="Title sequence" aria-labelledby="hero-title">
+      <div class="f-wall" data-wall aria-hidden="true">
+        {wall.map((row, r) => (
+          <div class="f-wall-row" data-row>
+            {row.map((image) => <img src={image.src} width={image.width} height={image.height} alt="" loading={r < 2 ? "eager" : "lazy"} decoding="async" />)}
+          </div>
+        ))}
+      </div>
+      <div class="f-hero-shade" aria-hidden="true"></div>
+      <div class="f-hero-copy" data-hero-copy>
+        <p class="f-mark f-rise" style="--i: 0">Self-hosted · source-available · Steam-first</p>
+        <h1 id="hero-title" class="f-wordmark">Questory</h1>
+        <p class="f-tag f-rise" style="--i: 2">
+          <span class="sr-only">Every hour you played, heard, watched or read, remembered.</span>
+          <span aria-hidden="true">Every hour you <em data-word>played</em>, remembered.</span>
+        </p>
+        <p class="f-hero-sub f-rise" style="--i: 3">Weekly insights across your Steam library, music, shows and reading, on your own hardware.</p>
+        <div class="f-cta f-rise" style="--i: 4">
+          <a href={SELF_HOST_PATH} class="q-btn q-btn-primary">Get Questory</a>
+          <a href={SCREENSHOTS_PATH} class="q-btn q-btn-ghost">Browse screenshots</a>
+        </div>
+        <p class="f-footage f-rise" style="--i: 5">All footage from the built-in demo account, with sample data.</p>
+      </div>
+    </section>
+
+    <section class="f-trailer" data-trailer data-scene="Trailer" aria-label="The premise">
+      <div class="f-trailer-lines">
+        {trailer.map((line) => <p class="f-trailer-line" data-line>{line}</p>)}
+        <p class="f-trailer-line f-trailer-final" data-line>Questory <em>remembers.</em></p>
+      </div>
+    </section>
+
+    {acts.map((act) => <Act act={act} />)}
+
+    <Act act={twist}>
+      <canvas slot="backdrop" class="f-print" data-fingerprint width="360" height="360" aria-hidden="true"></canvas>
+      <div slot="after-pan" class="f-optin">
+        <p class="f-mark">Opt-in, off by default</p>
+        <p class="f-optin-code"><span>ENTERPRISE=</span>true</p>
+        <p class="f-optin-note">QEngine's source is private; its image is published binary-only under a personal / noncommercial license.</p>
+      </div>
+    </Act>
+
+    <Act act={finale} />
+
+    <section id="selfhost" class="f-showing" data-scene="Now showing" aria-labelledby="sh">
+      <div class="f-sign q-reveal">
+        <p class="f-mark">Now showing</p>
+        <h2 id="sh" class="f-sign-title">On your <em>own hardware.</em></h2>
+        <p class="f-sign-sub">Start small on SQLite with in-memory cache, or scale up with Postgres and Redis through Docker Compose. Same app either way.</p>
+      </div>
+      <ol class="f-tickets">
+        {steps.map((step, i) => (
+          <li class="f-ticket q-reveal" style={`--i: ${i}`}>
+            <p class="f-ticket-no">Reel {i + 1}</p>
+            <h3>{step.t}</h3>
+            <code class="q-term block px-3.5 py-3 text-xs [overflow-wrap:anywhere]">
+              {step.lines.map((line) => <span class="block">{line}</span>)}
+              {step.note && <span class="block text-[var(--faint)]">{step.note}</span>}
+            </code>
+          </li>
+        ))}
+      </ol>
+      <div data-copy-scope class="f-copy">
+        <code class="min-w-0 flex-1 font-mono text-[13px] [overflow-wrap:anywhere]"><span class="text-[var(--faint)]">$ </span><span class="q-copy-text">{startCmd}</span></code>
+        <button type="button" data-copy class="q-btn q-btn-ghost q-btn-sm !rounded-[10px] bg-[rgba(255,255,255,0.06)]" aria-label="Copy start command"><span class="q-copy-label" aria-live="polite">Copy</span></button>
+      </div>
+      <p class="f-source">
+        Building from source instead? Clone the repo, copy the same template, and start with <code class="code-inline">--build</code>.
+        <a href={SELF_HOST_PATH} class="text-[var(--ink)] underline underline-offset-4">Read the self-host guide</a>
+      </p>
+    </section>
+
+    <section class="f-credits" data-credits data-scene="End credits" aria-label="Credits">
+      <div class="f-roll" data-roll>
+        <p class="f-roll-title">Questory</p>
+        <dl>
+          {credits.map((credit) => (
+            <div class="f-credit">
+              <dt>{credit.role}</dt>
+              <dd>{credit.names.map((name) => <span>{name}</span>)}</dd>
+            </div>
+          ))}
+        </dl>
+        <p class="f-legal">
+          Source-available under PolyForm Noncommercial 1.0.0. Personal and noncommercial self-hosting is allowed. Commercial use is not granted by this license.
+        </p>
+        <p class="f-legal">Required Notice: Copyright Questory Labs (https://github.com/Questory-Labs/Questory)</p>
+        <p class="f-legal">Third-party names and game art belong to their owners and appear here to show what Questory works with.</p>
+      </div>
+    </section>
+
+    <section class="f-end" data-scene="Fin" aria-labelledby="end">
+      <h2 id="end" class="q-reveal">Your library has stories.<br /><em>Read them.</em></h2>
+      <div class="f-cta">
+        <a href={SELF_HOST_PATH} class="q-btn q-btn-primary">Get Questory</a>
+        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" class="q-btn q-btn-ghost">View on GitHub</a>
+        <a href={SCREENSHOTS_PATH} class="q-btn q-btn-ghost">Browse screenshots</a>
+      </div>
+    </section>
+  </main>
+  <SiteFooter />
+</BaseLayout>
+
+<script>
+  import { animateWhileVisible, initCopy, initReveal, paintFingerprint } from "../scripts/motion";
+  import { initFilm } from "../scripts/film";
+
+  initReveal();
+  initCopy();
+  initFilm();
+
+  const print = document.querySelector<HTMLCanvasElement>("canvas[data-fingerprint]");
+  if (print) animateWhileVisible(print, (time) => paintFingerprint(print, time));
+</script>

@@ -1,44 +1,22 @@
 ---
 import { GITHUB_URL, LICENSE_URL, SELF_HOST_PATH } from "../data/features";
 import { SCREENSHOTS_PATH } from "../data/site";
-
-type Props = {
-  /** Giant outlined wordmark that rises in as the footer scrolls into view. */
-  wordmark?: boolean;
-};
-
-const { wordmark = false } = Astro.props;
 ---
 
-<footer class="qs-footer overflow-hidden border-t border-[var(--line)]">
-  <div
-    class="mx-auto flex max-w-[1240px] flex-col gap-5 px-4 py-9 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10"
-  >
-    <p>
-      Required Notice: Copyright Questory Labs (<a
-        href={GITHUB_URL}
-        class="text-[var(--accent)] hover:underline"
-        target="_blank"
-        rel="noopener noreferrer">Questory-Labs/Questory</a
-      >) · PolyForm Noncommercial 1.0.0
-    </p>
-    <nav class="flex flex-wrap gap-6" aria-label="Footer">
-      <a href={SCREENSHOTS_PATH} class="qs-link">Screenshots</a>
-      <a href={SELF_HOST_PATH} class="qs-link">Self-hosting</a>
-      <a href={LICENSE_URL} class="qs-link" target="_blank" rel="noopener noreferrer">License</a>
-      <a href={GITHUB_URL} class="qs-link" target="_blank" rel="noopener noreferrer">GitHub</a>
-    </nav>
-  </div>
-  {
-    wordmark && (
-      <p
-        aria-hidden="true"
-        class="qs-footer-mark font-display -mb-[0.16em] mt-2 overflow-hidden whitespace-nowrap text-center text-[clamp(80px,19vw,290px)] font-extrabold leading-none tracking-[-0.05em]"
-      >
-        {Array.from("Questory").map((char) => (
-          <span class="qs-char qs-ghost">{char}</span>
-        ))}
-      </p>
-    )
-  }
+<footer class="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-[var(--line)] px-4 pb-10 pt-6 text-[13px] text-[var(--faint)]">
+  <p class="m-0">
+    Required Notice: Copyright Questory Labs (<a
+      href={GITHUB_URL}
+      class="text-[var(--muted-strong)] underline-offset-4 hover:underline"
+      target="_blank"
+      rel="noopener noreferrer">Questory-Labs/Questory</a
+    >) · PolyForm Noncommercial 1.0.0
+  </p>
+  <p class="font-serif m-0 text-base">play. listen. watch. read. questory</p>
+  <nav class="flex flex-wrap gap-4" aria-label="Footer">
+    <a href={SCREENSHOTS_PATH} class="text-[var(--muted-strong)] hover:text-[var(--ink)]">Screenshots</a>
+    <a href={SELF_HOST_PATH} class="text-[var(--muted-strong)] hover:text-[var(--ink)]">Self-hosting</a>
+    <a href={LICENSE_URL} class="text-[var(--muted-strong)] hover:text-[var(--ink)]" target="_blank" rel="noopener noreferrer">License</a>
+    <a href={GITHUB_URL} class="text-[var(--muted-strong)] hover:text-[var(--ink)]" target="_blank" rel="noopener noreferrer">GitHub</a>
+  </nav>
 </footer>

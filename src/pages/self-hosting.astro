@@ -2,237 +2,237 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
-import SplitText from "../components/SplitText.astro";
 import GuideReference from "../components/GuideReference.astro";
 import { Content as Guide, frontmatter, getHeadings } from "../docs/self-hosting.md";
-import { GITHUB_URL, LICENSE_URL } from "../data/features";
+import { GITHUB_URL, LICENSE_URL, RAW_REPO_URL, SELF_HOST_REPO_URL } from "../data/features";
 import { SCREENSHOTS_PATH } from "../data/site";
 
 const headings = getHeadings();
-const RAW = "https://raw.githubusercontent.com/Questory-Labs/Questory/main/";
 
-/** Deployment modes from the guide's "Deployment modes" table. Lite is the server-rendered default. */
 const modes = [
-  { id: "lite", label: "Lite", profile: "selfhosted", env: ".env.selfhosted.example", pnpm: "docker:selfhosted", db: "SQLite volume", cache: "In-memory, inline sync", ram: "~512 MB", best: "Home server, single user, Raspberry Pi" },
-  { id: "full", label: "Full", profile: "selfhosted-full", env: ".env.selfhosted-full.example", pnpm: "docker:selfhosted-full", db: "PostgreSQL", cache: "Redis + BullMQ", ram: "~1 GB+", best: "Always-on self-host, multiple users" },
-  { id: "prod", label: "Production", profile: "production", env: ".env.production.example", pnpm: "docker:prod", db: "PostgreSQL", cache: "Redis + BullMQ", ram: "~1 GB+", best: "Public HTTPS, multi-user instance" },
+  { id: "lite", label: "Lite", profile: "selfhosted", env: ".env.selfhosted.example", pnpm: "docker:selfhosted" },
+  { id: "full", label: "Full", profile: "selfhosted-full", env: ".env.selfhosted-full.example", pnpm: "docker:selfhosted-full" },
+  { id: "prod", label: "Production", profile: "production", env: ".env.production.example", pnpm: "docker:prod" },
 ];
 const lite = modes[0];
 
+const modeTable = [
+  { mode: "local", stack: "SQLite, no Redis", best: "Development on your machine", profile: "—" },
+  { mode: "selfhosted", stack: "SQLite volume, inline sync", best: "Home server / small household", profile: "selfhosted" },
+  { mode: "selfhosted-full", stack: "Postgres + Redis + queues", best: "Always-on self-host with more users", profile: "selfhosted-full" },
+  { mode: "production", stack: "Same as full + boot checks that reject localhost URLs", best: "Public multi-user instance behind HTTPS", profile: "production" },
+];
+
 type Part = string | { v: "profile" | "env" | "pnpm" };
-type Line = { kind: "cmd" | "note" | "env"; parts: Part[] };
+type Line = { kind: "cmd" | "note"; parts: Part[] };
 const cmd = (...parts: Part[]): Line => ({ kind: "cmd", parts });
 const note = (text: string): Line => ({ kind: "note", parts: [text] });
-const envLine = (text: string): Line => ({ kind: "env", parts: [text] });
 const PROFILE = { v: "profile" } as const;
 const ENV = { v: "env" } as const;
 const PNPM = { v: "pnpm" } as const;
 
-const heroLines: Line[] = [
-  cmd(`curl -LO ${RAW}docker-compose.yml`),
-  cmd(`curl -LO ${RAW}`, ENV),
-  cmd("cp ", ENV, " .env"),
-  cmd("docker compose --profile ", PROFILE, " --env-file .env up -d"),
-  note("# web → http://localhost:3000"),
-  note("# api → http://localhost:4000"),
-];
-
-const stepSets = [
-  {
-    id: "prebuilt",
-    label: "Prebuilt images",
-    steps: [
-      { title: "Download", desc: "No clone, no build. Grab the compose file and the env template for your stack.", lang: "bash", lines: [cmd("mkdir questory && cd questory"), cmd(`curl -LO ${RAW}docker-compose.yml`), cmd(`curl -LO ${RAW}`, ENV)] },
-      { title: "Configure", desc: "Copy the template, then set at minimum your session secret and Steam key.", lang: "bash · .env", lines: [cmd("cp ", ENV, " .env"), note("# then in .env:"), envLine("SESSION_SECRET=<random-string-at-least-16-chars>"), envLine("STEAM_API_KEY=<your-steam-web-api-key>")] },
-      { title: "Start", desc: "Pulls the prebuilt images from GHCR and brings the stack up in the background.", lang: "bash", lines: [cmd("docker compose --profile ", PROFILE, " --env-file .env up -d")] },
-    ],
-  },
+const sets = [
   {
     id: "source",
     label: "From source",
-    steps: [
-      { title: "Clone", desc: "For custom changes. Builds the images locally from source.", lang: "bash", lines: [cmd("git clone https://github.com/Questory-Labs/Questory.git"), cmd("cd Questory")] },
-      { title: "Configure", desc: "Copy a template and edit your secrets. ALLOWED_STEAM_IDS is optional.", lang: "bash · .env", lines: [cmd("cp ", ENV, " .env"), note("# Edit: SESSION_SECRET, STEAM_API_KEY, optional ALLOWED_STEAM_IDS")] },
-      { title: "Build & start", desc: "Use the pnpm shortcut, or Docker Compose directly.", lang: "bash", lines: [cmd("pnpm ", PNPM, " -- --build"), note("# or:"), cmd("docker compose --profile ", PROFILE, " --env-file .env up -d --build")] },
+    title: "~/Questory · bash",
+    blurb: "The documented path: clone the repo and build the images locally with --build.",
+    lines: [
+      cmd("git clone https://github.com/Questory-Labs/Questory.git"),
+      cmd("cd Questory"),
+      cmd("cp ", ENV, " .env"),
+      note("# set SESSION_SECRET (openssl rand -hex 32), STEAM_API_KEY, URLs, optional ALLOWED_STEAM_IDS"),
+      cmd("docker compose --profile ", PROFILE, " --env-file .env up -d --build"),
+      note("# or, with Node + pnpm: pnpm docker:<mode> --build"),
+    ],
+  },
+  {
+    id: "prebuilt",
+    label: "Prebuilt images",
+    title: "~/questory · bash",
+    blurb: "Optional: pull published images instead of building. Fetch the compose file and the env template for your stack.",
+    lines: [
+      cmd("mkdir questory && cd questory"),
+      cmd(`curl -LO ${RAW_REPO_URL}docker-compose.yml`),
+      cmd(`curl -LO ${RAW_REPO_URL}`, ENV),
+      cmd("cp ", ENV, " .env"),
+      note("# set SESSION_SECRET (openssl rand -hex 32), STEAM_API_KEY, URLs"),
+      cmd("docker compose --profile ", PROFILE, " --env-file .env up -d"),
     ],
   },
 ];
 
-const images = [
-  { name: "API", image: "questorylabs-api", enterprise: false },
-  { name: "Web", image: "questorylabs-web", enterprise: false },
-  { name: "QEngine", image: "questorylabs-qengine", enterprise: true },
-];
-const registries = [
-  { id: "ghcr", label: "GHCR", prefix: "ghcr.io/questory-labs/" },
-  { id: "hub", label: "Docker Hub", prefix: "santoshpanna/" },
+const channels = [
+  { channel: "stable", rolling: "stable, latest", pinned: "vX.Y.Z" },
+  { channel: "rc", rolling: "rc", pinned: "vX.Y.Z-rc.N" },
+  { channel: "canary", rolling: "canary", pinned: "vX.Y.Z-canary.N" },
 ];
 
 const envVars = [
-  { key: "APP_MODE", service: "API · required", tone: "accent", html: "Boot mode: <code>local</code>, <code>selfhosted</code>, <code>selfhosted-full</code> or <code>production</code>." },
-  { key: "SESSION_SECRET", service: "API + Enterprise · required", tone: "accent", html: "Session signing secret, at least 16 characters. Placeholders are rejected outside local mode." },
-  { key: "STEAM_API_KEY", service: "API · required", tone: "accent", html: 'Your Steam Web API key from <a href="https://steamcommunity.com/dev/apikey">steamcommunity.com/dev/apikey</a>.' },
-  { key: "DATABASE_PROVIDER", service: "API", tone: "warm", html: "<code>sqlite</code> for lite, <code>postgresql</code> for full and production. Pairs with <code>DATABASE_URL</code>." },
-  { key: "REDIS_URL", service: "API", tone: "warm", html: "Turns on BullMQ queues and shared cache. Leave empty for in-memory." },
+  { key: "APP_MODE", note: "set by template", html: "Boot mode: <code>selfhosted</code>, <code>selfhosted-full</code> or <code>production</code>. Use the template that matches your profile." },
+  { key: "SESSION_SECRET", note: "required", html: "Generate with <code>openssl rand -hex 32</code>. The API rejects empty, short and <code>change-me*</code> values outside local mode, but not the template's <code>replace-with-a-long-random-string</code>." },
+  { key: "STEAM_API_KEY", note: "required", html: 'Your Steam Web API key from <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener noreferrer">steamcommunity.com/dev/apikey</a>.' },
+  { key: "WEB_ORIGIN · NEXT_PUBLIC_API_URL", note: "if not localhost", html: "The browser origin of the app and the URL browsers use to reach the API." },
+  { key: "STEAM_REALM · STEAM_RETURN_URL", note: "if not localhost", html: "Both use the API origin, and the realm must be a prefix of the return URL." },
+  { key: "ADMIN_EMAILS", note: "recommended", html: "Comma-separated emails granted admin. The first user is not admin unless listed here." },
+  { key: "NEXT_PUBLIC_ENABLE_*", note: "optional", html: "<code>MUSIC</code>, <code>WATCH</code> and <code>READ</code> until saved in Admin → Settings. Compose maps these to <code>FEATURE_*</code>." },
 ];
 
-/** From the guide's "Secrets checklist". */
 const checks = [
-  ["SESSION_SECRET", "Long random string; weak placeholders are rejected outside local mode"],
+  ["SESSION_SECRET", "Generate with openssl rand -hex 32; the template placeholder is not rejected at boot"],
   ["STEAM_API_KEY", "Your Steam Web API key"],
-  ["CRON_SECRET", "For /v1/internal/cron/* HTTP callers; optional with in-process cron"],
-  ["ENTERPRISE_INTERNAL_SECRET", "When running QEngine; same value in API and QEngine"],
+  ["ADMIN_EMAILS", "Set it before first signup, or nobody becomes admin and signup stays open"],
+  ["CRON_SECRET", "For /v1/internal/cron/* HTTP callers; replace the template placeholder, or remove it if unused"],
   ["Music & watch tokens", "Mint per-user API keys in Settings, not env vars"],
-  ["TRAKT_CLIENT_ID / TRAKT_CLIENT_SECRET", "For Trakt OAuth in the watch module"],
+  ["TRAKT_CLIENT_ID / TRAKT_CLIENT_SECRET", "Required for Trakt OAuth in the watch module"],
   ["TMDB_API_KEY", "Watch metadata enrichment; keep TMDB attribution in the UI"],
-  ["Postgres password", "Change the compose default on any internet-facing host"],
-  [".env stays private", "Never commit .env to version control"],
+  ["Postgres & Redis", "On any internet-facing host, change the default password and stop publishing 5432 / 6379"],
+  [".env stays private", "Never commit .env"],
 ];
 
+const findHeading = (prefix: string) => headings.find((h) => h.depth <= 3 && h.text.startsWith(prefix));
 const deeper = [
-  { slug: "reverse-proxy-setup", title: "Reverse proxy", sub: "Caddy, Nginx, Traefik" },
-  { slug: "enterprise-stack-qengine", title: "QEngine stack", sub: "Recommendations, opt-in" },
-  { slug: "optional-modules", title: "Music, Watch, Read", sub: "Enable the optional modules" },
-  { slug: "backups", title: "Backups", sub: "SQLite and PostgreSQL" },
-  { slug: "daily-sync-cron", title: "Daily sync cron", sub: "In-process or external" },
-  { slug: "troubleshooting", title: "Troubleshooting", sub: "Logins, cookies, databases" },
-].filter((item) => headings.some((h) => h.slug === item.slug));
+  { prefix: "How Compose reads", title: "Compose & .env", sub: "What reaches the API, and the override file" },
+  { prefix: "Lock down Postgres", title: "Lock down Postgres", sub: "Published ports and the default password" },
+  { prefix: "Optional data keys", title: "Optional data keys", sub: "IsThereAnyDeal, IGDB, MusicBrainz" },
+  { prefix: "Reverse proxy", title: "Reverse proxy", sub: "Same-origin setup, cookies, Caddy" },
+  { prefix: "QEngine security", title: "QEngine security", sub: "Internal network and secrets" },
+  { prefix: "Music analytics", title: "Music", sub: "Last.fm, multi-scrobbler, imports" },
+  { prefix: "Watch analytics", title: "Watch", sub: "Trakt, AniList, webhooks" },
+  { prefix: "qMonitor device login", title: "qMonitor", sub: "Device login and /api/health probe" },
+  { prefix: "Optional: Read", title: "Read", sub: "Manga and print sources" },
+  { prefix: "Steam OpenID URLs", title: "Steam OpenID", sub: "Realm and return URLs" },
+  { prefix: "Auth (email", title: "Auth", sub: "Email + password, ADMIN_EMAILS" },
+  { prefix: "Steam ID allowlist", title: "Steam ID allowlist", sub: "Who may link an account" },
+  { prefix: "Feature flags", title: "Feature flags", sub: "Admin settings and /v1/status" },
+  { prefix: "Backups", title: "Backups", sub: "SQLite and Postgres commands" },
+  { prefix: "Daily sync cron", title: "Daily sync cron", sub: "Every job, schedule and HTTP route" },
+]
+  .map((item) => ({ ...item, slug: findHeading(item.prefix)?.slug }))
+  .filter((item): item is typeof item & { slug: string } => Boolean(item.slug));
 
-const specs = ["Docker 20.10+", "Compose v2", "~512 MB RAM (lite)", "Steam Web API key"];
+const toc = [
+  { id: "license", label: "License limits" },
+  { id: "prerequisites", label: "Prerequisites" },
+  { id: "deployment-modes", label: "Deployment modes" },
+  { id: "quick-start", label: "Quick start" },
+  { id: "images", label: "Images & channels" },
+  { id: "after-starting", label: "After starting" },
+  { id: "env", label: "The .env that matters" },
+  { id: "secrets", label: "Secrets checklist" },
+  { id: "updating", label: "Updating" },
+  { id: "enterprise", label: "Enterprise · QEngine" },
+  { id: "deeper", label: "Going deeper" },
+  { id: "guide", label: "Full guide" },
+];
+
+const h2 = "m-0 text-[clamp(28px,3.2vw,38px)] font-light tracking-[-0.035em]";
+const lede = "mb-0 mt-3 max-w-[620px] text-[var(--muted-strong)]";
 ---
 
 <BaseLayout title={`${frontmatter.title} — Questory`} description={frontmatter.description}>
   <SiteHeader />
-  <main>
-    <!-- Hero -->
-    <section class="qs-hero mx-auto flex max-w-[1240px] flex-wrap items-center gap-[clamp(40px,5vw,72px)] px-4 pb-16 pt-14 sm:px-6 md:pb-24 md:pt-28 lg:px-10">
-      <div class="min-w-0 flex-[1_1_460px]">
-        <p class="qs-pill qs-eyebrow">The self-host guide</p>
-        <h1 class="font-display mt-4 text-[clamp(54px,7.6vw,112px)] font-extrabold leading-[0.9] tracking-[-0.05em]">
-          <SplitText lines={[{ text: "Run it on" }, { text: "your own box.", class: "text-[var(--accent)]" }]} />
-        </h1>
-        <p class="qs-hero-sub mt-6 max-w-[520px] text-[19px] leading-relaxed text-[var(--muted)]">
-          Prebuilt Docker images, three Compose profiles, one <code class="font-mono text-[0.9em] text-[var(--ink)]">.env</code>. From a Raspberry Pi to a public HTTPS instance.
-        </p>
-        <div class="qs-specs mt-8 flex flex-wrap gap-2.5">
-          {specs.map((spec) => <span class="rounded-full border border-[var(--line-strong)] bg-[var(--surface)] px-3.5 py-2 text-sm">{spec}</span>)}
-        </div>
-      </div>
-      <div class="qs-hero-term min-w-0 flex-[1.15_1_520px]">
-        <div class="hatch" data-tilt>
-          <div class="overflow-hidden rounded-2xl border border-[var(--line-strong)] bg-[var(--term)] shadow-[0_50px_120px_rgba(0,0,0,0.55)]">
-            <div class="flex items-center gap-[7px] border-b border-[var(--line)] bg-[var(--paper)] px-4 py-3">
-              <span aria-hidden="true" class="size-2.5 rounded-full bg-[var(--danger)]"></span>
-              <span aria-hidden="true" class="size-2.5 rounded-full bg-[var(--warm)]"></span>
-              <span aria-hidden="true" class="size-2.5 rounded-full bg-[var(--accent)]"></span>
-              <span class="ml-3.5 font-mono text-xs text-[var(--muted)]">~/questory · <span data-var="label">{lite.label}</span></span>
+  <main class="mx-auto max-w-[1240px] px-4">
+    <div class="docs-shell pt-[clamp(48px,7vw,96px)]">
+      <aside class="docs-sidebar" aria-label="On this page">
+        <p class="label-mono mb-4 mt-0">On this page</p>
+        <nav class="q-toc" data-page-toc>
+          <span class="q-toc-ind" aria-hidden="true"></span>
+          <ul class="m-0 list-none p-0">
+            {toc.map((t) => <li><a href={`#${t.id}`}>{t.label}</a></li>)}
+          </ul>
+        </nav>
+        <a href={SELF_HOST_REPO_URL} target="_blank" rel="noopener noreferrer" class="q-btn q-btn-ghost q-btn-sm mt-6">Edit on GitHub</a>
+      </aside>
+
+      <div class="docs-main flex flex-col gap-[clamp(64px,8vw,104px)] pb-10">
+        <section aria-labelledby="hero">
+          <p class="q-eyebrow q-in" style="--i: 1">Docs — Self-hosting</p>
+          <h1 id="hero" class="q-h1 q-in" style="--i: 2">Run Questory on <em class="font-serif text-[var(--muted-strong)]">your own box.</em></h1>
+          <p class="q-lede q-in max-w-[600px]" style="--i: 3">
+            From a home server on SQLite to a multi-user Postgres and Redis stack — same app, same compose file, one <code class="code-inline">.env</code>.
+          </p>
+        </section>
+
+        <section id="license" aria-labelledby="license-h" class="q-accent q-reveal scroll-mt-24 p-[clamp(22px,3vw,32px)]">
+          <p class="q-eyebrow !text-[var(--warm)]">Read first</p>
+          <h2 id="license-h" class={h2}>License limits</h2>
+          <p class={lede}>
+            Questory is source-available under the
+            <a href={LICENSE_URL} target="_blank" rel="noopener noreferrer" class="text-[var(--warm-ink)] underline underline-offset-4">PolyForm Noncommercial License 1.0.0</a>.
+            Personal, hobby and other noncommercial use is allowed. Selling it or charging for hosted access is not — ask the copyright holder for a commercial license.
+          </p>
+          <p class="mb-0 mt-3 max-w-[620px] text-sm text-[var(--muted)]">If you redistribute it, include the license terms and any <code class="code-inline">Required Notice:</code> lines. It is not OSI open source.</p>
+        </section>
+
+        <section id="prerequisites" aria-labelledby="pre-h" class="scroll-mt-24">
+          <h2 id="pre-h" class={h2}>Prerequisites</h2>
+          <ul class="m-0 mt-5 grid list-none gap-3 p-0 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
+            <li class="q-card p-5"><p class="label-mono m-0">Runtime</p><p class="mb-0 mt-2">Docker with Compose 2.20+ (<code class="code-inline">docker compose</code>)</p></li>
+            <li class="q-card p-5"><p class="label-mono m-0">Platform</p><p class="mb-0 mt-2">Published images are <code class="code-inline">linux/amd64</code> only. ARM hosts build from source.</p></li>
+            <li class="q-card p-5"><p class="label-mono m-0">Steam</p><p class="mb-0 mt-2">A Steam Web API key</p></li>
+            <li class="q-card p-5"><p class="label-mono m-0">Secret</p><p class="mb-0 mt-2"><code class="code-inline">SESSION_SECRET</code> of 16+ characters</p></li>
+            <li class="q-card p-5"><p class="label-mono m-0">From source</p><p class="mb-0 mt-2">Git; Node + pnpm only for the <code class="code-inline">pnpm docker:*</code> shortcuts</p></li>
+          </ul>
+        </section>
+
+        <section id="deployment-modes" aria-labelledby="modes-h" class="scroll-mt-24">
+          <h2 id="modes-h" class={h2}>Deployment modes</h2>
+          <p class={lede}>Set <code class="code-inline">APP_MODE</code> and pick the matching Compose profile and env template. The profile decides the stack, and the API always caches: in memory on lite, shared through Redis on full and production. <code class="code-inline">production</code> does not enforce TLS, so put an HTTPS reverse proxy in front.</p>
+          <div class="q-g mt-6 overflow-x-auto">
+            <table class="w-full min-w-[560px] border-collapse text-left text-sm">
+              <thead>
+                <tr class="label-mono">
+                  <th class="px-5 py-3.5 font-normal">APP_MODE</th>
+                  <th class="px-5 py-3.5 font-normal">Stack</th>
+                  <th class="px-5 py-3.5 font-normal">Best for</th>
+                  <th class="px-5 py-3.5 font-normal">Profile</th>
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  modeTable.map((m) => (
+                    <tr class="border-t border-[var(--line)]">
+                      <td class="px-5 py-3.5 font-mono text-[13px]">{m.mode}</td>
+                      <td class="px-5 py-3.5 text-[var(--muted-strong)]">{m.stack}</td>
+                      <td class="px-5 py-3.5 text-[var(--muted)]">{m.best}</td>
+                      <td class="px-5 py-3.5 font-mono text-[13px] text-[var(--muted)]">{m.profile}</td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="quick-start" aria-labelledby="qs-h" class="scroll-mt-24">
+          <h2 id="qs-h" class={h2}>Quick start</h2>
+          <p class={lede}>Build from the repo with <code class="code-inline">--build</code>, or leave it off to pull published images. Every command below follows the stack you pick.</p>
+          <div class="mt-6 flex flex-wrap gap-3">
+            <div class="q-seg" role="group" aria-label="Stack">
+              {modes.map((m) => <button type="button" data-mode={m.id} data-profile={m.profile} data-env={m.env} data-pnpm={m.pnpm} aria-pressed={m.id === lite.id ? "true" : "false"}>{m.label}</button>)}
             </div>
-            <div class="qs-code p-[clamp(18px,2.4vw,28px)] text-[clamp(12px,1.05vw,14px)] leading-[1.9]">
-              {
-                heroLines.map((line) => (
-                  <div class:list={["qs-hline", line.kind === "note" && "text-[var(--muted)]"]}>
-                    {line.kind === "cmd" && <span class="text-[var(--accent)]">$ </span>}
-                    {line.parts.map((part) => (typeof part === "string" ? part : <span data-var={part.v}>{lite[part.v]}</span>))}
-                  </div>
-                ))
-              }
-              <div class="qs-hline"><span class="text-[var(--accent)]">$ </span><span class="qs-caret" aria-hidden="true"></span></div>
+            <div class="q-seg" role="group" aria-label="Install method">
+              {sets.map((s, i) => <button type="button" data-source={s.id} aria-pressed={i === 0 ? "true" : "false"}>{s.label}</button>)}
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 01 Mode picker -->
-    <section id="modes" class="border-t border-[var(--line)] bg-[var(--panel)]">
-      <div class="mx-auto max-w-[1240px] px-4 py-20 sm:px-6 md:py-32 lg:px-10">
-        <div class="qs-up flex flex-wrap items-end justify-between gap-x-12 gap-y-4">
-          <div class="min-w-0 flex-[1_1_480px]">
-            <p class="qs-eyebrow">01 — Pick your stack</p>
-            <h2 class="font-display mt-4 text-[clamp(40px,5vw,72px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Small box or<br />big box?</h2>
-          </div>
-          <p class="max-w-[400px] flex-[1_1_300px] text-[17px] leading-relaxed text-[var(--muted)]">Every command on this page follows your pick. Switch any time; the app is the same.</p>
-        </div>
-        <div role="group" aria-label="Deployment mode" class="qs-modes mt-12 grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
           {
-            modes.map((mode) => (
-              <button
-                type="button"
-                class="qs-opt qs-mode block w-full rounded-[18px] border-[1.5px] border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px] text-left text-[var(--ink)]"
-                data-mode={mode.id}
-                data-profile={mode.profile}
-                data-env={mode.env}
-                data-pnpm={mode.pnpm}
-                data-label={mode.label}
-                aria-pressed={mode.id === lite.id ? "true" : "false"}
-              >
-                <span class="flex items-center justify-between gap-3">
-                  <span class="font-mono text-xs uppercase tracking-[0.1em] text-[var(--muted)]">--profile {mode.profile}</span>
-                  <span class="qs-mode-dot grid size-[26px] place-items-center rounded-full">
-                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--bg-0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
-                  </span>
-                </span>
-                <span class="font-display mt-[22px] block text-[40px] font-extrabold leading-none tracking-[-0.04em]">{mode.label}</span>
-                <span class="mt-2.5 block text-base text-[var(--muted-strong)]">{mode.best}</span>
-                <span class="mt-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t border-[var(--line)] pt-[18px] text-sm">
-                  <span class="text-[var(--muted)]">Database</span><span>{mode.db}</span>
-                  <span class="text-[var(--muted)]">Cache</span><span>{mode.cache}</span>
-                  <span class="text-[var(--muted)]">Memory</span><span>{mode.ram}</span>
-                </span>
-              </button>
-            ))
-          }
-        </div>
-      </div>
-    </section>
-
-    <!-- 02 Steps -->
-    <section id="install" class="mx-auto max-w-[1240px] px-4 py-20 sm:px-6 md:py-36 lg:px-10">
-      <div class="qs-up flex flex-wrap items-end justify-between gap-x-12 gap-y-6">
-        <div class="min-w-0 flex-[1_1_480px]">
-          <p class="qs-eyebrow">02 — Three steps</p>
-          <h2 class="font-display mt-4 text-[clamp(40px,5vw,72px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Copy. Paste.<br />Play.</h2>
-        </div>
-        <div role="group" aria-label="Install method" class="inline-flex gap-1 rounded-full border border-[var(--line-strong)] bg-[var(--bg-1)] p-[5px]">
-          {
-            stepSets.map((set, i) => (
-              <button type="button" class="qs-opt qs-seg min-h-[42px] rounded-full border border-transparent px-[18px] text-sm font-semibold text-[var(--muted-strong)]" data-source={set.id} aria-pressed={i === 0 ? "true" : "false"}>
-                {set.label}
-              </button>
-            ))
-          }
-        </div>
-      </div>
-
-      {
-        stepSets.map((set, si) => (
-          <div class="qs-steps relative mt-16 flex flex-col gap-12 pl-[clamp(56px,7vw,88px)]" data-steps={set.id} hidden={si !== 0}>
-            <div aria-hidden="true" class="absolute bottom-2 left-[clamp(21px,2.6vw,27px)] top-2 w-0.5 overflow-hidden rounded bg-[var(--line)]">
-              <div class="qs-line size-full origin-top bg-[var(--accent)]"></div>
-            </div>
-            {set.steps.map((step, i) => (
-              <div class="qs-step relative">
-                <span class="qs-stepnum font-display absolute left-[calc(-1*clamp(56px,7vw,88px))] top-0 grid size-[clamp(44px,5.4vw,56px)] place-items-center rounded-full border-2 border-[var(--accent)] bg-[var(--bg-0)] text-xl font-extrabold text-[var(--accent)]">
-                  {i + 1}
-                </span>
-                <h3 class="font-display mt-1.5 text-[clamp(26px,2.6vw,34px)] font-bold tracking-[-0.02em]">{step.title}</h3>
-                <p class="mt-2 max-w-[620px] leading-relaxed text-[var(--muted)]">{step.desc}</p>
-                <div class="mt-5 overflow-hidden rounded-[14px] border border-[var(--line-strong)] bg-[var(--term)]">
-                  <div class="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--paper)] py-2 pl-4 pr-2">
-                    <span class="font-mono text-xs text-[var(--muted)]">{step.lang}</span>
-                    <button type="button" class="qs-copy inline-flex min-h-9 items-center gap-2 rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-[13px] font-semibold hover:bg-[rgba(242,239,232,0.1)]" aria-label={`Copy ${step.title} commands`}>
-                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>
-                      <span class="qs-copy-label">Copy</span>
-                    </button>
+            sets.map((s, si) => (
+              <div data-set={s.id} hidden={si !== 0} class="mt-4">
+                <p class="mb-3 mt-0 text-sm text-[var(--muted)]">{s.blurb}</p>
+                <div data-copy-scope class="q-term overflow-hidden">
+                  <div class="flex items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] py-2 pl-4 pr-2">
+                    <span class="flex items-center gap-2 font-mono text-xs text-[var(--faint)]">
+                      <span class="dot q-live text-[var(--ok)]" aria-hidden="true"></span>
+                      {s.title}
+                    </span>
+                    <button type="button" data-copy class="q-btn q-btn-ghost q-btn-sm" aria-label={`Copy ${s.label} commands`}><span class="q-copy-label" aria-live="polite">Copy</span></button>
                   </div>
-                  <div class="qs-code qs-codebody px-5 py-[18px] text-sm leading-[1.9]">
-                    {step.lines.map((line) => (
-                      <div
-                        class:list={[line.kind === "note" && "text-[var(--muted)]", line.kind === "env" && "text-[var(--warm)]"]}
-                        data-copy={line.kind === "note" ? undefined : ""}
-                      >
-                        {line.kind === "cmd" && <span class="text-[var(--accent)]" aria-hidden="true">$ </span>}
-                        <span class="qs-copy-text">
+                  <div class="q-code px-5 py-4 text-[13px] leading-[1.9]">
+                    {s.lines.map((line) => (
+                      <div class:list={[line.kind === "note" && "text-[var(--faint)]"]}>
+                        {line.kind === "cmd" && <span class="text-[var(--faint)]" aria-hidden="true">$ </span>}
+                        <span class:list={[line.kind === "cmd" && "q-copy-text"]}>
                           {line.parts.map((part) => (typeof part === "string" ? part : <span data-var={part.v}>{lite[part.v]}</span>))}
                         </span>
                       </div>
@@ -240,179 +240,184 @@ const specs = ["Docker 20.10+", "Compose v2", "~512 MB RAM (lite)", "Steam Web A
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        ))
-      }
+            ))
+          }
+          <p class="mb-0 mt-4 text-sm text-[var(--muted)]">
+            pnpm shortcut for your pick: <code class="code-inline">pnpm <span data-var="pnpm">{lite.pnpm}</span> --build</code>
+          </p>
+        </section>
 
-      <div class="qs-after mt-[72px] grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
-        <div class="hatch"><div class="h-full rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px]"><p class="font-mono text-xs uppercase tracking-[0.1em] text-[var(--muted)]">Web UI</p><p class="mt-3 font-mono text-[22px] text-[var(--accent)]">localhost:3000</p><p class="mt-2.5 text-sm text-[var(--muted)]">Or your <code class="font-mono">WEB_ORIGIN</code></p></div></div>
-        <div class="hatch"><div class="h-full rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px]"><p class="font-mono text-xs uppercase tracking-[0.1em] text-[var(--muted)]">API</p><p class="mt-3 font-mono text-[22px] text-[var(--accent)]">localhost:4000</p><p class="mt-2.5 text-sm text-[var(--muted)]">Or your public API URL</p></div></div>
-        <div class="hatch"><div class="h-full rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px]"><p class="font-mono text-xs uppercase tracking-[0.1em] text-[var(--muted)]">Health</p><p class="mt-3 font-mono text-[22px] text-[var(--warm)]">GET /health</p><p class="mt-2.5 text-sm text-[var(--muted)]">Mode, database, Redis, allowlist and module status</p></div></div>
-      </div>
-    </section>
-
-    <!-- 03 Images -->
-    <section id="images" class="border-t border-[var(--line)] bg-[var(--panel)]">
-      <div class="mx-auto flex max-w-[1240px] flex-wrap items-start gap-[clamp(40px,6vw,80px)] px-4 py-20 sm:px-6 md:py-32 lg:px-10">
-        <div class="qs-up min-w-0 flex-[1_1_340px]">
-          <p class="qs-eyebrow">03 — Images</p>
-          <h2 class="font-display mt-4 text-[clamp(40px,5vw,68px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Built on every<br />commit.</h2>
-          <p class="mt-5 text-[17px] leading-relaxed text-[var(--muted)]">Public on both registries, no login needed. Tagged by Git SHA and semantic version, so you can pin a release.</p>
-          <div role="group" aria-label="Registry" class="mt-7 inline-flex gap-1 rounded-full border border-[var(--line-strong)] bg-[var(--bg-1)] p-[5px]">
+        <section id="images" aria-labelledby="img-h" class="scroll-mt-24">
+          <h2 id="img-h" class={h2}>Images & release channels</h2>
+          <p class={lede}>
+            Compose pulls from Docker Hub by default. Set <code class="code-inline">DOCKERHUB_NAMESPACE</code> to use your own namespace and <code class="code-inline">IMAGE_TAG</code> to follow a channel or pin a build.
+          </p>
+          <div class="mt-6 flex flex-col gap-2.5">
             {
-              registries.map((registry, i) => (
-                <button type="button" class="qs-opt qs-seg min-h-[42px] rounded-full border border-transparent px-[18px] text-sm font-semibold text-[var(--muted-strong)]" data-registry={registry.prefix} aria-pressed={i === 0 ? "true" : "false"}>
-                  {registry.label}
-                </button>
+              ["API", "Web"].map((name) => (
+                <div data-copy-scope class="q-row flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[18px] border border-[var(--line)] px-5 py-3.5">
+                  <span class="w-14 flex-none">{name}</span>
+                  <code class="q-copy-text min-w-0 flex-1 break-all font-mono text-[13px] text-[var(--muted-strong)]">{`\${DOCKERHUB_NAMESPACE:-santoshpanna}/questorylabs-${name.toLowerCase()}:\${IMAGE_TAG:-latest}`}</code>
+                  <button type="button" data-copy class="q-btn q-btn-ghost q-btn-sm" aria-label={`Copy ${name} image reference`}><span class="q-copy-label">Copy</span></button>
+                </div>
               ))
             }
           </div>
-        </div>
-        <div class="qs-imgs flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
-          {
-            images.map((img) => (
-              <div class="qs-imgrow flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] px-[22px] py-5">
-                <span class="font-display flex-[0_0_110px] text-[22px] font-bold">{img.name}</span>
-                <code class="min-w-0 flex-[1_1_280px] break-all font-mono text-sm text-[var(--muted-strong)]">
-                  <span class="qs-copy-text"><span data-var="registry">{registries[0].prefix}</span>{img.image}:latest</span>
-                </code>
-                {img.enterprise && (
-                  <span class="rounded-md border border-[rgba(224,184,106,0.35)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--warm)]">Enterprise</span>
-                )}
-                <button type="button" class="qs-copy min-h-9 rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-[13px] font-semibold hover:bg-[rgba(242,239,232,0.1)]" aria-label={`Copy ${img.name} image reference`}>
-                  <span class="qs-copy-label">Copy</span>
-                </button>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-    </section>
-
-    <!-- 04 Env -->
-    <section id="env" class="mx-auto max-w-[1240px] px-4 py-20 sm:px-6 md:py-36 lg:px-10">
-      <div class="qs-up">
-        <p class="qs-eyebrow">04 — The .env that matters</p>
-        <h2 class="font-display mt-4 text-[clamp(40px,5vw,72px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Five variables.<br />That's the setup.</h2>
-      </div>
-      <div class="qs-envgrid mt-[52px] grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
-        {
-          envVars.map((v) => (
-            <div class="qs-env rounded-[14px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[26px]">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <code class:list={["font-mono text-[17px]", v.tone === "warm" ? "text-[var(--warm)]" : "text-[var(--accent)]"]}>{v.key}</code>
-                <span class="font-mono text-[11px] text-[var(--muted)]">{v.service}</span>
-              </div>
-              <p class="mt-3 leading-relaxed text-[var(--muted)] [&_a]:text-[var(--ink)] [&_a]:underline [&_a]:underline-offset-[3px] [&_code]:font-mono [&_code]:text-[var(--ink)]" set:html={v.html} />
-            </div>
-          ))
-        }
-      </div>
-    </section>
-
-    <!-- 05 Checklist -->
-    <section id="secrets" class="border-t border-[var(--line)] bg-[var(--panel)]">
-      <div class="mx-auto flex max-w-[1240px] flex-wrap items-start gap-[clamp(40px,6vw,80px)] px-4 py-20 sm:px-6 md:py-32 lg:px-10">
-        <div class="qs-up min-w-0 flex-[1_1_340px]">
-          <p class="qs-eyebrow">05 — Before you go live</p>
-          <h2 class="font-display mt-4 text-[clamp(40px,5vw,68px)] font-extrabold leading-[0.96] tracking-[-0.045em]">Secrets<br />checklist.</h2>
-          <div class="mt-8">
-            <div class="flex items-baseline justify-between font-mono text-sm">
-              <span class="text-[var(--muted)]">Ready</span>
-              <span class="font-display text-[28px] font-extrabold" aria-live="polite"><span class="qs-done">0</span> / {checks.length}</span>
-            </div>
-            <div class="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(242,239,232,0.08)]"><div class="qs-bar" style="width: 0%"></div></div>
-            <p class="qs-shipit mt-[22px] inline-flex items-center gap-2.5 rounded-[10px] bg-[var(--accent)] px-4 py-2.5 font-bold text-[var(--bg-0)]" hidden>
-              Ship it.
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
-            </p>
+          <div class="q-g mt-4 overflow-x-auto">
+            <table class="w-full min-w-[460px] border-collapse text-left text-sm">
+              <thead>
+                <tr class="label-mono">
+                  <th class="px-5 py-3.5 font-normal">Channel</th>
+                  <th class="px-5 py-3.5 font-normal">Rolling tag</th>
+                  <th class="px-5 py-3.5 font-normal">Pin exact build</th>
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  channels.map((c) => (
+                    <tr class="border-t border-[var(--line)]">
+                      <td class="px-5 py-3.5">{c.channel}</td>
+                      <td class="px-5 py-3.5 font-mono text-[13px] text-[var(--muted-strong)]">{c.rolling}</td>
+                      <td class="px-5 py-3.5 font-mono text-[13px] text-[var(--muted)]">{c.pinned}</td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="qs-checks flex min-w-0 flex-[999_1_560px] flex-col gap-2.5">
-          {
-            checks.map(([key, desc]) => (
-              <label class="qs-check">
-                <input type="checkbox" />
-                <span class="qs-box">
-                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--bg-0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
-                </span>
-                <span class="min-w-0">
-                  <code class="block break-all font-mono text-[15px]">{key}</code>
-                  <span class="mt-1 block text-sm text-[var(--muted)]">{desc}</span>
-                </span>
-              </label>
-            ))
-          }
-        </div>
+          <p class="mb-0 mt-4 max-w-[680px] text-sm text-[var(--muted)]">
+            <code class="code-inline">:latest</code> tracks stable. Compose defaults to <code class="code-inline">PULL_POLICY=always</code>, so rolling tags update on <code class="code-inline">docker compose up</code>; set <code class="code-inline">PULL_POLICY=missing</code> when you pin an exact version. Images are <code class="code-inline">linux/amd64</code> only and mirrored to <code class="code-inline">ghcr.io/questory-labs</code>. The <code class="code-inline">rc</code> tag only exists once a release candidate has been published, and none has been so far. For QEngine, see <a href="#enterprise" class="text-[var(--ink)] underline underline-offset-4">Enterprise</a>.
+          </p>
+        </section>
+
+        <section id="after-starting" aria-labelledby="as-h" class="scroll-mt-24">
+          <h2 id="as-h" class={h2}>After starting</h2>
+          <div class="mt-6 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))]">
+            <div class="q-card p-5"><p class="label-mono m-0">Web UI</p><p class="mb-0 mt-3 font-mono text-lg">localhost:3000</p><p class="mb-0 mt-2 text-sm text-[var(--muted)]">Or your <code class="code-inline">WEB_ORIGIN</code></p></div>
+            <div class="q-card p-5"><p class="label-mono m-0">API</p><p class="mb-0 mt-3 font-mono text-lg">localhost:4000</p><p class="mb-0 mt-2 text-sm text-[var(--muted)]">Or your public API URL</p></div>
+            <div class="q-card p-5"><p class="label-mono m-0">Liveness</p><p class="mb-0 mt-3 font-mono text-lg">GET /health</p><p class="mb-0 mt-2 text-sm text-[var(--muted)]">Returns <code class="code-inline">ok</code> and <code class="code-inline">service</code> only</p></div>
+            <div class="q-card p-5"><p class="label-mono m-0">Feature flags</p><p class="mb-0 mt-3 font-mono text-lg">GET /v1/status</p><p class="mb-0 mt-2 text-sm text-[var(--muted)]">Plus Admin → Settings</p></div>
+          </div>
+          <p class="mb-0 mt-4 max-w-[680px] text-sm text-[var(--muted)]">
+            <code class="code-inline">NEXT_PUBLIC_API_URL</code> is read when the web container starts (written into <code class="code-inline">/runtime-env.js</code>), so Hub-pulled images honour the compose environment without a rebuild.
+          </p>
+          <ol class="mb-0 mt-5 flex max-w-[680px] list-decimal flex-col gap-2 pl-5 text-[var(--muted-strong)]">
+            <li>Set <code class="code-inline">ADMIN_EMAILS</code> in <code class="code-inline">.env</code>, then register with that email.</li>
+            <li>Link Steam in Settings → Connections.</li>
+            <li>In Admin → Settings, turn on Music, Watch or Read, and close signup if the instance is private.</li>
+          </ol>
+        </section>
+
+        <section id="env" aria-labelledby="env-h" class="scroll-mt-24">
+          <h2 id="env-h" class={h2}>The .env that matters</h2>
+          <p class={lede}>The Compose profile decides the stack: it hardcodes the database, Redis and sync settings, so changing those in <code class="code-inline">.env</code> has no effect. These are the values you do set.</p>
+          <div class="mt-6 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+            {
+              envVars.map((v) => (
+                <div class="q-feat rounded-[24px] border border-[rgba(255,255,255,0.06)] p-5">
+                  <p class="m-0 flex flex-wrap items-center justify-between gap-2">
+                    <code class="font-mono text-[15px]">{v.key}</code>
+                    <span class="label-mono">{v.note}</span>
+                  </p>
+                  <p class="mb-0 mt-2.5 text-sm text-[var(--muted)] [&_a]:text-[var(--ink)] [&_a]:underline [&_a]:underline-offset-[3px] [&_code]:font-mono [&_code]:text-[var(--ink)]" set:html={v.html} />
+                </div>
+              ))
+            }
+          </div>
+        </section>
+
+        <section id="secrets" aria-labelledby="sec-h" class="scroll-mt-24">
+          <h2 id="sec-h" class={h2}>Secrets checklist</h2>
+          <div class="mt-5 flex items-center gap-4">
+            <div class="tick-track h-3 flex-1 overflow-hidden rounded-sm"><div class="tick-fill" data-tick style="width: 0%"></div></div>
+            <span class="font-mono text-sm text-[var(--muted)]" aria-live="polite"><span data-done>0</span> / {checks.length}</span>
+          </div>
+          <div class="mt-4 flex flex-col gap-2">
+            {
+              checks.map(([key, desc]) => (
+                <label class="q-check">
+                  <input type="checkbox" data-check />
+                  <span class="q-box">
+                    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--bg-0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+                  </span>
+                  <span class="min-w-0">
+                    <code class="block break-all font-mono text-sm">{key}</code>
+                    <span class="mt-1 block text-sm text-[var(--muted)]">{desc}</span>
+                  </span>
+                </label>
+              ))
+            }
+          </div>
+        </section>
+
+        <section id="updating" aria-labelledby="up-h" class="scroll-mt-24">
+          <h2 id="up-h" class={h2}>Updating</h2>
+          <p class={lede}>Back up your database first. Containers run <code class="code-inline">prisma db push</code> on start against the shared schema. If a change would lose data, the API refuses to start and logs why.</p>
+          <div class="q-term mt-5 px-5 py-4">
+            <div class="q-code text-[13px] leading-[1.9]">
+              <div class="text-[var(--faint)]"># prebuilt: refresh the compose file — a new image with an old one is unsupported</div>
+              <div><span class="text-[var(--faint)]">$ </span>curl -LO {RAW_REPO_URL}docker-compose.yml</div>
+              <div><span class="text-[var(--faint)]">$ </span>docker compose --profile <span data-var="profile">{lite.profile}</span> --env-file .env up -d</div>
+              <div class="text-[var(--faint)]"># from source</div>
+              <div><span class="text-[var(--faint)]">$ </span>git pull</div>
+              <div><span class="text-[var(--faint)]">$ </span>docker compose --profile <span data-var="profile">{lite.profile}</span> --env-file .env up -d --build</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="enterprise" aria-labelledby="ent-h" class="q-accent q-reveal scroll-mt-24 flex flex-wrap items-center gap-8 p-[clamp(22px,3vw,36px)]">
+          <canvas data-fingerprint width="280" height="280" aria-hidden="true" class="h-auto w-[220px] max-w-full flex-none rounded-[20px] bg-[rgba(0,0,0,0.35)]"></canvas>
+          <div class="min-w-0 flex-[1_1_320px]">
+            <p class="q-eyebrow !text-[var(--warm)]">Enterprise · opt-in</p>
+            <h2 id="ent-h" class={h2}>QEngine <em class="font-serif text-[var(--warm-ink)]">stack</em></h2>
+            <p class={lede}>
+              Recommendations and the taste fingerprint run in a separate Rust service, switched on with <code class="code-inline">ENTERPRISE=true</code> via <code class="code-inline">docker-compose.enterprise.yml</code> and <code class="code-inline">.env.enterprise.example</code>.
+              The source is private; the image, <code class="code-inline">santoshpanna/questorylabs-qengine</code>, is published binary-only under a personal / noncommercial license.
+            </p>
+            <ul class="mb-0 mt-4 flex list-none flex-col gap-2 p-0 text-sm text-[var(--muted-strong)]">
+              <li>Browser traffic goes through the API; QEngine stays on the internal Docker network.</li>
+              <li>Set the same long <code class="code-inline">ENTERPRISE_INTERNAL_SECRET</code> in the API and QEngine.</li>
+              <li>Don't publish the OTEL ports <code class="code-inline">:4040</code> / <code class="code-inline">:4318</code> to the host.</li>
+            </ul>
+            {findHeading("QEngine security") && <a href={`#${findHeading("QEngine security")!.slug}`} class="mt-4 inline-flex text-sm text-[var(--warm-ink)] underline-offset-4 hover:underline">QEngine security in the guide ↓</a>}
+          </div>
+        </section>
+
+        <section id="deeper" aria-labelledby="deep-h" class="scroll-mt-24">
+          <h2 id="deep-h" class={h2}>Going deeper</h2>
+          <div class="mt-6 grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
+            {
+              deeper.map((item) => (
+                <a href={`#${item.slug}`} class="q-row flex items-center justify-between gap-3 rounded-[18px] border border-[var(--line)] px-5 py-4">
+                  <span>
+                    <span class="block">{item.title}</span>
+                    <span class="mt-0.5 block text-sm text-[var(--muted)]">{item.sub}</span>
+                  </span>
+                  <span aria-hidden="true" class="text-[var(--muted-strong)]">↓</span>
+                </a>
+              ))
+            }
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <section id="guide" aria-labelledby="guide-h" class="scroll-mt-24 border-t border-[var(--line)] pt-[clamp(56px,7vw,96px)]">
+      <p class="q-eyebrow">The full guide</p>
+      <h2 id="guide-h" class="q-h2">{frontmatter.title}</h2>
+      <p class="q-lede max-w-[720px]">{frontmatter.description}</p>
+      <div class="mt-10">
+        <GuideReference headings={headings}>
+          <Guide />
+        </GuideReference>
       </div>
     </section>
 
-    <!-- Updating + license -->
-    <section class="mx-auto grid max-w-[1240px] gap-7 px-4 py-20 sm:px-6 md:py-36 lg:px-10 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
-      <div class="qs-up rounded-[18px] border border-[var(--line-strong)] bg-[var(--bg-1)] p-[clamp(24px,3vw,36px)]">
-        <p class="qs-eyebrow">Updating</p>
-        <h3 class="font-display mt-3.5 text-[38px] font-extrabold tracking-[-0.035em]">Two commands.</h3>
-        <div class="qs-code mt-5 rounded-xl border border-[var(--line)] bg-[var(--term)] px-5 py-[18px] text-[13px] leading-[1.9]">
-          <div><span class="text-[var(--accent)]">$ </span>docker compose pull</div>
-          <div><span class="text-[var(--accent)]">$ </span>docker compose --profile <span data-var="profile">{lite.profile}</span> --env-file .env up -d</div>
-        </div>
-        <p class="mt-[18px] text-[15px] leading-relaxed text-[var(--muted)]">Schema migrations run on container start. Back up your database first.</p>
-      </div>
-      <div class="qs-up rounded-[18px] border border-[rgba(224,184,106,0.3)] bg-[var(--bg-1)] p-[clamp(24px,3vw,36px)]">
-        <p class="font-mono text-[13px] uppercase tracking-[0.12em] text-[var(--warm)]">License</p>
-        <h3 class="font-display mt-3.5 text-[38px] font-extrabold tracking-[-0.035em]">Free for you. Not for sale.</h3>
-        <div class="mt-5 grid gap-3 text-[15px] leading-relaxed">
-          <p class="flex gap-3"><span class="flex-none font-bold text-[var(--accent)]">Yes</span><span class="text-[var(--muted-strong)]">Personal use, hobby projects and other noncommercial purposes.</span></p>
-          <p class="flex gap-3"><span class="flex-none font-bold text-[var(--danger)]">No</span><span class="text-[var(--muted-strong)]">Selling it, or charging for access or hosting as a product.</span></p>
-        </div>
-        <a href={LICENSE_URL} target="_blank" rel="noopener noreferrer" class="qs-link mt-5 inline-flex min-h-11 items-center font-semibold underline underline-offset-4">PolyForm Noncommercial 1.0.0</a>
-      </div>
-    </section>
-
-    <!-- Going deeper -->
-    <section class="border-t border-[var(--line)]">
-      <div class="mx-auto max-w-[1240px] px-4 py-20 sm:px-6 md:py-28 lg:px-10">
-        <h2 class="qs-up font-display text-[clamp(34px,4vw,54px)] font-extrabold tracking-[-0.04em]">Going deeper</h2>
-        <div class="qs-deep mt-9 grid gap-px overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line)] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
-          {
-            deeper.map((item) => (
-              <a href={`#${item.slug}`} class="qs-deepl flex items-center justify-between gap-3 bg-[var(--bg-0)] p-[26px] transition-colors hover:bg-[var(--bg-1)]">
-                <span>
-                  <span class="font-display block text-[21px] font-bold">{item.title}</span>
-                  <span class="mt-1 block text-sm text-[var(--muted)]">{item.sub}</span>
-                </span>
-                <span aria-hidden="true" class="text-[var(--accent)]">↓</span>
-              </a>
-            ))
-          }
-        </div>
-      </div>
-    </section>
-
-    <!-- Full reference -->
-    <section id="guide" class="border-t border-[var(--line)] bg-[var(--panel)]">
-      <div class="mx-auto max-w-[1280px] px-6 pt-20 md:pt-28">
-        <p class="qs-eyebrow">The full guide</p>
-        <h2 class="qs-up font-display mt-4 text-[clamp(36px,4.4vw,60px)] font-extrabold leading-none tracking-[-0.04em]">{frontmatter.title}</h2>
-        <p class="mt-4 max-w-[720px] text-lg text-[var(--muted)]">{frontmatter.description}</p>
-      </div>
-      <GuideReference headings={headings}>
-        <Guide />
-      </GuideReference>
-    </section>
-
-    <!-- CTA -->
-    <section class="qs-final mx-auto max-w-[1240px] px-4 py-28 text-center sm:px-6 md:py-44 lg:px-10">
-      <h2 class="qs-final-h font-display mx-auto max-w-[960px] text-[clamp(46px,7.5vw,110px)] font-extrabold leading-[0.92] tracking-[-0.05em]">
-        Your box.<br /><span class="text-[var(--accent)]">Your stories.</span>
-      </h2>
-      <div class="qs-final-cta mt-11 flex flex-wrap justify-center gap-3.5">
-        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" class="qs-mag qs-btn-primary inline-flex min-h-14 items-center gap-2.5 rounded-xl bg-[var(--accent)] px-[30px] text-[17px] font-semibold text-[var(--bg-0)]">
-          Get Questory
-          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg>
-        </a>
-        <a href={SCREENSHOTS_PATH} class="qs-mag qs-btn-ghost inline-flex min-h-14 items-center rounded-xl border border-[var(--line-strong)] bg-[var(--bg-1)] px-[30px] text-[17px] font-semibold">Browse screenshots</a>
+    <section aria-labelledby="end" class="px-4 pb-20 pt-[clamp(96px,12vw,140px)] text-center">
+      <h2 id="end" class="q-reveal m-0 text-[clamp(40px,6vw,88px)] font-light leading-none tracking-[-0.05em]">Your box.<br /><em class="font-serif text-[var(--muted-strong)]">Your stories.</em></h2>
+      <div class="mt-9 flex flex-wrap justify-center gap-3">
+        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" class="q-btn q-btn-primary">Get Questory</a>
+        <a href={SCREENSHOTS_PATH} class="q-btn q-btn-ghost">Browse screenshots</a>
       </div>
     </section>
   </main>
@@ -420,51 +425,16 @@ const specs = ["Docker 20.10+", "Compose v2", "~512 MB RAM (lite)", "Steam Web A
 </BaseLayout>
 
 <script>
-  import { gsap, ScrollTrigger, MOTION_QUERY, charsIn, initChrome } from "../scripts/motion";
+  import { initCopy, initReveal, initToc, animateWhileVisible, paintFingerprint } from "../scripts/motion";
 
-  initChrome();
-  const motionOk = () => window.matchMedia(MOTION_QUERY).matches;
+  initReveal();
+  initCopy();
 
-  let typeTl: gsap.core.Timeline | undefined;
-  function typeHero(delay = 0) {
-    if (!motionOk()) return;
-    typeTl?.kill();
-    typeTl = gsap
-      .timeline({ delay })
-      .fromTo(".qs-hline", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.7, ease: "steps(30)", stagger: 0.38 });
-  }
+  const pageToc = document.querySelector<HTMLElement>("[data-page-toc]");
+  if (pageToc) initToc(pageToc);
 
-  const mm = gsap.matchMedia();
-  mm.add(MOTION_QUERY, () => {
-    gsap
-      .timeline({ defaults: { ease: "expo.out" } })
-      .from(".qs-pill", { y: 20, opacity: 0, duration: 0.8 }, 0.3)
-      .add(charsIn(".qs-hero h1"), 0.5)
-      .from(".qs-hero-sub, .qs-specs > *", { y: 30, opacity: 0, duration: 1, stagger: 0.07 }, 0.9)
-      .from(".qs-hero-term", { x: 120, rotationY: -24, opacity: 0, transformPerspective: 1600, duration: 1.8 }, 0.8);
-    typeHero(1.4);
-
-    gsap.to(".qs-hero-term", { yPercent: -12, ease: "none", scrollTrigger: { trigger: ".qs-hero", start: "top top", end: "bottom top", scrub: 0.5 } });
-    gsap.from(".qs-mode", { y: 90, opacity: 0, scale: 0.96, stagger: 0.1, duration: 1.1, ease: "expo.out", clearProps: "transform", scrollTrigger: { trigger: ".qs-modes", start: "top 85%" } });
-
-    gsap.utils.toArray<HTMLElement>(".qs-steps").forEach((steps) => {
-      gsap.fromTo(steps.querySelector(".qs-line"), { scaleY: 0 }, { scaleY: 1, ease: "none", scrollTrigger: { trigger: steps, start: "top 70%", end: "bottom 60%", scrub: 0.5 } });
-      steps.querySelectorAll<HTMLElement>(".qs-step").forEach((step) => {
-        const num = step.querySelector(".qs-stepnum");
-        gsap
-          .timeline({ scrollTrigger: { trigger: step, start: "top 78%" } })
-          .from(num, { scale: 0, rotation: -90, duration: 0.9, ease: "back.out(2)" })
-          .from(Array.from(step.children).filter((c) => c !== num), { x: 80, opacity: 0, stagger: 0.08, duration: 1.1, ease: "expo.out" }, "-=0.6");
-      });
-    });
-    gsap.from(".qs-after > *", { y: 80, opacity: 0, scale: 0.92, stagger: 0.1, duration: 1.1, ease: "expo.out", scrollTrigger: { trigger: ".qs-after", start: "top 88%" } });
-    gsap.from(".qs-imgrow", { x: 140, opacity: 0, stagger: 0.12, duration: 1.2, ease: "expo.out", scrollTrigger: { trigger: ".qs-imgs", start: "top 85%" } });
-    gsap.from(".qs-env", { y: 100, opacity: 0, rotation: (i: number) => [-4, 3, -2, 4, -3][i % 5], stagger: 0.08, duration: 1.2, ease: "expo.out", scrollTrigger: { trigger: ".qs-envgrid", start: "top 85%" } });
-    gsap.from(".qs-check", { x: 60, opacity: 0, stagger: 0.06, duration: 0.9, ease: "expo.out", scrollTrigger: { trigger: ".qs-checks", start: "top 85%" } });
-    gsap.from(".qs-deepl", { opacity: 0, y: 40, stagger: 0.06, duration: 0.9, ease: "expo.out", scrollTrigger: { trigger: ".qs-deep", start: "top 88%" } });
-    gsap.from(".qs-final-h", { scale: 2, opacity: 0, filter: "blur(12px)", ease: "none", scrollTrigger: { trigger: ".qs-final", start: "top bottom", end: "center 60%", scrub: 0.5 } });
-    gsap.from(".qs-final-cta > *", { y: 60, opacity: 0, stagger: 0.1, duration: 1, ease: "expo.out", scrollTrigger: { trigger: ".qs-final-cta", start: "top 92%" } });
-  });
+  const fp = document.querySelector<HTMLCanvasElement>("canvas[data-fingerprint]");
+  if (fp) animateWhileVisible(fp, (t) => paintFingerprint(fp, t));
 
   const setVar = (name: string, value: string) => {
     document.querySelectorAll<HTMLElement>(`[data-var="${name}"]`).forEach((el) => (el.textContent = value));
@@ -472,85 +442,35 @@ const specs = ["Docker 20.10+", "Compose v2", "~512 MB RAM (lite)", "Steam Web A
   const pressOnly = (buttons: NodeListOf<HTMLButtonElement>, active: HTMLButtonElement) =>
     buttons.forEach((b) => b.setAttribute("aria-pressed", String(b === active)));
 
-  // Deployment mode: rewrites every command on the page.
   const modeButtons = document.querySelectorAll<HTMLButtonElement>("[data-mode]");
   modeButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      if (button.getAttribute("aria-pressed") === "true") return;
       pressOnly(modeButtons, button);
-      const { profile = "", env = "", pnpm = "", label = "" } = button.dataset;
+      const { profile = "", env = "", pnpm = "" } = button.dataset;
       setVar("profile", profile);
       setVar("env", env);
       setVar("pnpm", pnpm);
-      setVar("label", label);
-      typeHero();
-      if (motionOk()) gsap.fromTo(".qs-steps:not([hidden]) .qs-codebody", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.6, stagger: 0.08, ease: "expo.out" });
     });
   });
 
-  // Install method: prebuilt images vs. from source.
   const sourceButtons = document.querySelectorAll<HTMLButtonElement>("[data-source]");
   sourceButtons.forEach((button) => {
     button.addEventListener("click", () => {
       pressOnly(sourceButtons, button);
-      document.querySelectorAll<HTMLElement>("[data-steps]").forEach((set) => {
-        set.hidden = set.dataset.steps !== button.dataset.source;
+      document.querySelectorAll<HTMLElement>("[data-set]").forEach((set) => {
+        set.hidden = set.dataset.set !== button.dataset.source;
       });
-      ScrollTrigger.refresh();
-      if (motionOk()) gsap.fromTo(".qs-steps:not([hidden]) .qs-step", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: "expo.out" });
     });
   });
 
-  // Registry
-  const registryButtons = document.querySelectorAll<HTMLButtonElement>("[data-registry]");
-  registryButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      pressOnly(registryButtons, button);
-      setVar("registry", button.dataset.registry ?? "");
-      if (motionOk()) gsap.fromTo(".qs-imgrow code", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.06, ease: "power3.out" });
-    });
-  });
-
-  // Copy buttons copy the commands in their block (comments excluded).
-  document.querySelectorAll<HTMLButtonElement>(".qs-copy").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const scope = button.closest(".qs-step, .qs-imgrow");
-      if (!scope) return;
-      const lines = scope.matches(".qs-step")
-        ? Array.from(scope.querySelectorAll("[data-copy] .qs-copy-text"))
-        : Array.from(scope.querySelectorAll(".qs-copy-text"));
-      const text = lines.map((el) => el.textContent?.trim() ?? "").join("\n");
-      const label = button.querySelector(".qs-copy-label");
-      try {
-        await navigator.clipboard.writeText(text);
-        if (label) label.textContent = "Copied";
-      } catch {
-        if (label) label.textContent = "Press Ctrl+C";
-      }
-      window.setTimeout(() => {
-        if (label) label.textContent = "Copy";
-      }, 1600);
-    });
-  });
-
-  // Secrets checklist
-  const boxes = document.querySelectorAll<HTMLInputElement>(".qs-check input");
-  const done = document.querySelector(".qs-done");
-  const bar = document.querySelector<HTMLElement>(".qs-bar");
-  const shipIt = document.querySelector<HTMLElement>(".qs-shipit");
+  const boxes = document.querySelectorAll<HTMLInputElement>("[data-check]");
+  const done = document.querySelector("[data-done]");
+  const tick = document.querySelector<HTMLElement>("[data-tick]");
   boxes.forEach((box) => {
     box.addEventListener("change", () => {
       const count = Array.from(boxes).filter((b) => b.checked).length;
       if (done) done.textContent = String(count);
-      if (bar) bar.style.width = `${Math.round((count / boxes.length) * 100)}%`;
-      if (!shipIt) return;
-      const complete = count === boxes.length;
-      if (complete && shipIt.hidden) {
-        shipIt.hidden = false;
-        if (motionOk()) gsap.fromTo(shipIt, { scale: 0.4, opacity: 0, rotation: -8 }, { scale: 1, opacity: 1, rotation: 0, duration: 1, ease: "elastic.out(1, 0.45)" });
-      } else if (!complete) {
-        shipIt.hidden = true;
-      }
+      if (tick) tick.style.width = `${Math.round((count / boxes.length) * 100)}%`;
     });
   });
 </script>

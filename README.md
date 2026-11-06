@@ -24,6 +24,16 @@ Static output goes to `dist/`.
 
 ## Adding screenshots
 
+Captures come from the demo account in the [Questory repo](https://github.com/Questory-Labs/Questory). With its dev stack running and Demo enabled in Admin → Settings:
+
+```bash
+pnpm --filter @questorylabs/web screenshots:demo
+```
+
+That writes to `../questory-labs.github.io/assets/screenshots` by default (override with `SCREENSHOT_OUT_DIR`). The shot list is `apps/web/screenshots/shots.ts`.
+
+To add a shot by hand:
+
 1. Drop original WebP captures in `assets/screenshots/{id}.webp` (keep full resolution; originals are never modified).
 2. Add metadata for the shot in `src/data/features.ts` (`screenshotGroups` and optionally `featuredScreenshotIds`).
 3. Generate web variants:
@@ -32,7 +42,7 @@ Static output goes to `dist/`.
 pnpm screenshots
 ```
 
-This writes optimized card (800px) and full (1440px) images to `public/screenshots/card/` and `public/screenshots/full/`. `pnpm build` runs the resize step automatically via `prebuild`.
+This writes optimized card (800px), full (1440px) and cine (2200px) images to `public/screenshots/{card,full,cine}/`. `pnpm build` runs the resize step automatically via `prebuild`.
 
 After cloning the repo, run `pnpm screenshots` once before `pnpm dev` so local previews include generated images.
 
